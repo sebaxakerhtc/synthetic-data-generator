@@ -22,11 +22,9 @@ if HUGGINGFACE_BASE_URL and MODEL:
     raise ValueError(
         "`HUGGINGFACE_BASE_URL` and `MODEL` cannot be set at the same time. Use a model id for serverless inference and a base URL dedicated to Hugging Face Inference Endpoints."
     )
-if OPENAI_BASE_URL or OLLAMA_BASE_URL:
-    if not MODEL:
+if not MODEL:
+    if OPENAI_BASE_URL or OLLAMA_BASE_URL:
         raise ValueError("`MODEL` is not set. Please provide a model id for inference.")
-
-
 
 # Check if multiple base URLs are provided
 base_urls = [
