@@ -121,7 +121,7 @@ def generate_dataset(
         {
             "instruction": f"Rewrite this prompt keeping the same structure but highlighting different aspects of the original without adding anything new. Original prompt: {system_prompt} Rewritten prompt: "
         }
-        for i in range(int(num_rows / 50))
+        for i in range(int(num_rows / 100))
     ]
     batch = list(prompt_rewriter.process(inputs=inputs))
     prompt_rewrites = [entry["generation"] for entry in batch[0]] + [system_prompt]

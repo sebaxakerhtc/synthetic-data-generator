@@ -178,26 +178,41 @@ def generate_dataset(
 
     dataframe = pd.DataFrame(distiset_results)
     if multi_label:
-        dataframe["labels"] = dataframe["labels"].apply(
-            lambda x: list(
-                set(
-                    [
-                        label.lower().strip()
-                        if (label is not None and label.lower().strip() in labels)
-                        else random.choice(labels)
-                        for label in x
-                    ]
-                )
-            )
-        )
+
+        def _validate_labels(x):
+            if isinstance(x, str):  # single label
+                return [x.lower().strip()]
+            elif isinstance(x, list):  # multiple labels
+                return [
+                    label.lower().strip()
+                    for label in x
+                    if label.lower().strip() in labels
+                ]
+            else:
+                return [random.choice(labels)]
+
+        dataframe["labels"] = dataframe["labels"].apply(_validate_labels)
         dataframe = dataframe[dataframe["labels"].notna()]
     else:
+
+        def _validate_labels(x):
+            if isinstance(x, str) and x.lower().strip() in labels:
+                return x.lower().strip()
+            elif isinstance(x, list):
+                options = [
+                    label.lower().strip()
+                    for label in x
+                    if isinstance(label, str) and label.lower().strip() in labels
+                ]
+                if options:
+                    return random.choice(options)
+                else:
+                    return random.choice(labels)
+            else:
+                return random.choice(labels)
+
         dataframe = dataframe.rename(columns={"labels": "label"})
-        dataframe["label"] = dataframe["label"].apply(
-            lambda x: x.lower().strip()
-            if x and x.lower().strip() in labels
-            else random.choice(labels)
-        )
+        dataframe["label"] = dataframe["label"].apply(_validate_labels)
     dataframe = dataframe[dataframe["text"].notna()]
 
     progress(1.0, desc="Dataset created")
