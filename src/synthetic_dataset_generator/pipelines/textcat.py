@@ -94,7 +94,6 @@ def get_textcat_generator(difficulty, clarity, temperature, is_sample):
         "top_p": 0.95,
     }
     llm = _get_llm(generation_kwargs=generation_kwargs)
-
     textcat_generator = GenerateTextClassificationData(
         llm=llm,
         difficulty=None if difficulty == "mixed" else difficulty,
@@ -111,7 +110,6 @@ def get_labeller_generator(system_prompt, labels, multi_label):
         "max_new_tokens": MAX_NUM_TOKENS,
     }
     llm = _get_llm(generation_kwargs=generation_kwargs)
-
     labeller_generator = TextClassification(
         llm=llm,
         context=system_prompt,

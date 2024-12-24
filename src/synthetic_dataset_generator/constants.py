@@ -81,7 +81,7 @@ if OPENAI_BASE_URL:
 
 if not SFT_AVAILABLE:
     warnings.warn(
-        "`SFT_AVAILABLE` is set to `False`. Use Hugging Face Inference Endpoints or Ollama to generate chat data, provide a `TOKENIZER_ID` and `MAGPIE_PRE_QUERY_TEMPLATE`."
+        "`SFT_AVAILABLE` is set to `False`. Use Hugging Face Inference Endpoints or Ollama to generate chat data, provide a `TOKENIZER_ID` and `MAGPIE_PRE_QUERY_TEMPLATE`. You can also use `HUGGINGFACE_BASE_URL` to with vllm."
     )
     MAGPIE_PRE_QUERY_TEMPLATE = None
 

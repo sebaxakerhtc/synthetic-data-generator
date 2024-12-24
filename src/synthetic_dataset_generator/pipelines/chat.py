@@ -203,15 +203,6 @@ def get_magpie_generator(system_prompt, num_turns, temperature, is_sample):
     return magpie_generator
 
 
-def get_prompt_rewriter():
-    generation_kwargs = {
-        "temperature": 1,
-    }
-    prompt_rewriter = TextGeneration(llm=_get_llm(generation_kwargs=generation_kwargs))
-    prompt_rewriter.load()
-    return prompt_rewriter
-
-
 def get_response_generator(system_prompt, num_turns, temperature, is_sample):
     if num_turns == 1:
         generation_kwargs = {
