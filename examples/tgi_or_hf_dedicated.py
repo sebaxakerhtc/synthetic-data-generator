@@ -3,7 +3,7 @@ import os
 
 from synthetic_dataset_generator import launch
 
-assert os.getenv("HF_TOKEN")  # push the data to huggingface
+os.environ["HF_TOKEN"] = "hf_..."  # push the data to huggingface
 os.environ["HUGGINGFACE_BASE_URL"] = "http://127.0.0.1:3000/"  # dedicated endpoint/TGI
 os.environ["MAGPIE_PRE_QUERY_TEMPLATE"] = "llama3"  # magpie template
 os.environ["TOKENIZER_ID"] = (
