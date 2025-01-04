@@ -1,4 +1,9 @@
-# pip install synthetic-dataset-generator
+# /// script
+# requires-python = ">=3.11,<3.12"
+# dependencies = [
+#     "synthetic-dataset-generator",
+# ]
+# ///
 import os
 
 from synthetic_dataset_generator import launch
