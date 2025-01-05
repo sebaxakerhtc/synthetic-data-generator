@@ -2,7 +2,7 @@ import math
 import random
 
 import gradio as gr
-from distilabel.llms import InferenceEndpointsLLM, OllamaLLM, OpenAILLM
+from distilabel.llms import ClientvLLM, InferenceEndpointsLLM, OllamaLLM, OpenAILLM
 from distilabel.steps.tasks import TextGeneration
 
 from synthetic_dataset_generator.constants import (
@@ -14,6 +14,7 @@ from synthetic_dataset_generator.constants import (
     OLLAMA_BASE_URL,
     OPENAI_BASE_URL,
     TOKENIZER_ID,
+    VLLM_BASE_URL,
 )
 
 TOKEN_INDEX = 0
@@ -107,6 +108,17 @@ def _get_llm(use_magpie_template=False, **kwargs):
             api_key=_get_next_api_key(),
             base_url=HUGGINGFACE_BASE_URL,
             tokenizer_id=TOKENIZER_ID or MODEL,
+            **kwargs,
+        )
+    elif VLLM_BASE_URL:
+        if "generation_kwargs" in kwargs:
+            if "do_sample" in kwargs["generation_kwargs"]:
+                del kwargs["generation_kwargs"]["do_sample"]
+        llm = ClientvLLM(
+            base_url=VLLM_BASE_URL,
+            model=MODEL,
+            tokenizer=TOKENIZER_ID or MODEL,
+            api_key=_get_next_api_key(),
             **kwargs,
         )
     else:

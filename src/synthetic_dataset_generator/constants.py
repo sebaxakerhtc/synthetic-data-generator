@@ -18,23 +18,28 @@ TOKENIZER_ID = os.getenv(key="TOKENIZER_ID", default=None)
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
 HUGGINGFACE_BASE_URL = os.getenv("HUGGINGFACE_BASE_URL")
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
+
+# check if model is set correctly
 if HUGGINGFACE_BASE_URL and MODEL:
     raise ValueError(
         "`HUGGINGFACE_BASE_URL` and `MODEL` cannot be set at the same time. Use a model id for serverless inference and a base URL dedicated to Hugging Face Inference Endpoints."
     )
 if not MODEL:
-    if OPENAI_BASE_URL or OLLAMA_BASE_URL:
+    if OPENAI_BASE_URL or OLLAMA_BASE_URL or VLLM_BASE_URL:
         raise ValueError("`MODEL` is not set. Please provide a model id for inference.")
 
 # Check if multiple base URLs are provided
 base_urls = [
-    url for url in [OPENAI_BASE_URL, OLLAMA_BASE_URL, HUGGINGFACE_BASE_URL] if url
+    url
+    for url in [OPENAI_BASE_URL, OLLAMA_BASE_URL, HUGGINGFACE_BASE_URL, VLLM_BASE_URL]
+    if url
 ]
 if len(base_urls) > 1:
     raise ValueError(
         f"Multiple base URLs provided: {', '.join(base_urls)}. Only one base URL can be set at a time."
     )
-BASE_URL = OPENAI_BASE_URL or OLLAMA_BASE_URL or HUGGINGFACE_BASE_URL
+BASE_URL = OPENAI_BASE_URL or OLLAMA_BASE_URL or HUGGINGFACE_BASE_URL or VLLM_BASE_URL
 
 
 # API Keys
