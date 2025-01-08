@@ -1,6 +1,6 @@
 # pip install synthetic-dataset-generator
 # ollama serve
-# ollama run llama3.1:8b-instruct-q8_0
+# ollama run qwen2.5:32b-instruct-q5_K_S
 import os
 
 from synthetic_dataset_generator import launch
