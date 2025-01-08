@@ -1,4 +1,9 @@
-# pip install synthetic-dataset-generator
+# /// script
+# requires-python = ">=3.11,<3.12"
+# dependencies = [
+#     "synthetic-dataset-generator",
+# ]
+# ///
 # vllm serve Qwen/Qwen2.5-1.5B-Instruct
 import os
 

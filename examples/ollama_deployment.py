@@ -1,4 +1,9 @@
-# pip install synthetic-dataset-generator
+# /// script
+# requires-python = ">=3.11,<3.12"
+# dependencies = [
+#     "synthetic-dataset-generator",
+# ]
+# ///
 # ollama serve
 # ollama run qwen2.5:32b-instruct-q5_K_S
 import os
