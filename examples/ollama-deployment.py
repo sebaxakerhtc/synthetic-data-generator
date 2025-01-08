@@ -10,7 +10,7 @@ import os
 
 from synthetic_dataset_generator import launch
 
-# os.environ["HF_TOKEN"] = "hf_..."  # push the data to huggingface
+os.environ["HF_TOKEN"] = "hf_..."  # push the data to huggingface
 os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:11434/"  # ollama base url
 os.environ["MODEL"] = "qwen2.5:32b-instruct-q5_K_S"  # model id
 os.environ["TOKENIZER_ID"] = "Qwen/Qwen2.5-32B-Instruct"  # tokenizer id
