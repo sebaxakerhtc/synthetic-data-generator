@@ -186,13 +186,15 @@ def generate_dataset(
             if isinstance(x, str):  # single label
                 return [x.lower().strip()]
             elif isinstance(x, list):  # multiple labels
-                return [
-                    label.lower().strip()
-                    for label in x
-                    if label.lower().strip() in labels
-                ]
+                return list(
+                    set(
+                        label.lower().strip()
+                        for label in x
+                        if label.lower().strip() in labels
+                    )
+                )
             else:
-                return [random.choice(labels)]
+                return list(set([random.choice(labels)]))
 
         dataframe["labels"] = dataframe["labels"].apply(_validate_labels)
         dataframe = dataframe[dataframe["labels"].notna()]
