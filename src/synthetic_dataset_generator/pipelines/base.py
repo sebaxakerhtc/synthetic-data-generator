@@ -1,7 +1,6 @@
 import math
 import random
 
-import gradio as gr
 from distilabel.llms import ClientvLLM, InferenceEndpointsLLM, OllamaLLM, OpenAILLM
 from distilabel.steps.tasks import TextGeneration
 
@@ -9,7 +8,6 @@ from synthetic_dataset_generator.constants import (
     API_KEYS,
     DEFAULT_BATCH_SIZE,
     HUGGINGFACE_BASE_URL,
-    MAGPIE_PRE_QUERY_TEMPLATE,
     MODEL,
     OLLAMA_BASE_URL,
     OPENAI_BASE_URL,
@@ -62,6 +60,19 @@ def get_rewriten_prompts(prompt: str, num_rows: int):
     return prompt_rewrites
 
 
+def _get_llm_class() -> str:
+    if OPENAI_BASE_URL:
+        return "OpenAILLM"
+    elif OLLAMA_BASE_URL:
+        return "OllamaLLM"
+    elif HUGGINGFACE_BASE_URL:
+        return "InferenceEndpointsLLM"
+    elif VLLM_BASE_URL:
+        return "ClientvLLM"
+    else:
+        return "InferenceEndpointsLLM"
+
+
 def _get_llm(use_magpie_template=False, **kwargs):
     if OPENAI_BASE_URL:
         llm = OpenAILLM(
@@ -100,6 +111,7 @@ def _get_llm(use_magpie_template=False, **kwargs):
             model=MODEL,
             host=OLLAMA_BASE_URL,
             tokenizer_id=TOKENIZER_ID or MODEL,
+            use_magpie_template=use_magpie_template,
             **kwargs,
         )
     elif HUGGINGFACE_BASE_URL:
@@ -108,6 +120,7 @@ def _get_llm(use_magpie_template=False, **kwargs):
             api_key=_get_next_api_key(),
             base_url=HUGGINGFACE_BASE_URL,
             tokenizer_id=TOKENIZER_ID or MODEL,
+            use_magpie_template=use_magpie_template,
             **kwargs,
         )
     elif VLLM_BASE_URL:
@@ -119,6 +132,7 @@ def _get_llm(use_magpie_template=False, **kwargs):
             model=MODEL,
             tokenizer=TOKENIZER_ID or MODEL,
             api_key=_get_next_api_key(),
+            use_magpie_template=use_magpie_template,
             **kwargs,
         )
     else:
@@ -126,7 +140,7 @@ def _get_llm(use_magpie_template=False, **kwargs):
             api_key=_get_next_api_key(),
             tokenizer_id=TOKENIZER_ID or MODEL,
             model_id=MODEL,
-            magpie_pre_query_template=MAGPIE_PRE_QUERY_TEMPLATE,
+            use_magpie_template=use_magpie_template,
             **kwargs,
         )
 
@@ -138,4 +152,4 @@ try:
     llm.load()
     llm.generate([[{"content": "Hello, world!", "role": "user"}]])
 except Exception as e:
-    gr.Error(f"Error loading {llm.__class__.__name__}: {e}")
+    raise Exception(f"Error loading {llm.__class__.__name__}: {e}")

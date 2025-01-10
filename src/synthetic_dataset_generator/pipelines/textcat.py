@@ -9,11 +9,9 @@ from distilabel.steps.tasks import (
 from pydantic import BaseModel, Field
 
 from synthetic_dataset_generator.constants import (
-    BASE_URL,
     MAX_NUM_TOKENS,
-    MODEL,
 )
-from synthetic_dataset_generator.pipelines.base import _get_llm
+from synthetic_dataset_generator.pipelines.base import _get_llm, _get_llm_class
 from synthetic_dataset_generator.utils import get_preprocess_labels
 
 PROMPT_CREATION_PROMPT = """You are an AI assistant specialized in generating very precise text classification tasks for dataset creation.
@@ -131,39 +129,21 @@ def generate_pipeline_code(
     temperature: float = 0.9,
 ) -> str:
     labels = get_preprocess_labels(labels)
-    MODEL_ARG = "model_id" if BASE_URL else "model"
-    MODEL_CLASS = "InferenceEndpointsLLM" if BASE_URL else "OpenAILLM"
     base_code = f"""
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
 import os
 import random
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.llms import {_get_llm_class()}
 from distilabel.pipeline import Pipeline
 from distilabel.steps import LoadDataFromDicts, KeepColumns
 from distilabel.steps.tasks import {"GenerateTextClassificationData" if num_labels == 1 else "GenerateTextClassificationData, TextClassification"}
-
-MODEL = "{MODEL}"
-BASE_URL = "{BASE_URL}"
-TEXT_CLASSIFICATION_TASK = "{system_prompt}"
-os.environ["API_KEY"] = (
-    "hf_xxx"  # https://huggingface.co/settings/tokens/new?ownUserPermissions=repo.content.read&ownUserPermissions=repo.write&globalPermissions=inference.serverless.write&canReadGatedRepos=true&tokenType=fineGrained
-)
 
 with Pipeline(name="textcat") as pipeline:
 
     task_generator = LoadDataFromDicts(data=[{{"task": TEXT_CLASSIFICATION_TASK}}])
 
     textcat_generation = GenerateTextClassificationData(
-        llm={MODEL_CLASS}(
-            {MODEL_ARG}=MODEL,
-            base_url=BASE_URL,
-            api_key=os.environ["API_KEY"],
-            generation_kwargs={{
-                "temperature": {temperature},
-                "max_new_tokens": {MAX_NUM_TOKENS},
-                "top_p": 0.95,
-            }},
-        ),
+        llm={_get_llm_class()}.from_json({_get_llm().model_dump_json()}),
         seed=random.randint(0, 2**32 - 1),
         difficulty={None if difficulty == "mixed" else repr(difficulty)},
         clarity={None if clarity == "mixed" else repr(clarity)},
@@ -196,15 +176,7 @@ with Pipeline(name="textcat") as pipeline:
     )
 
     textcat_labeller = TextClassification(
-        llm={MODEL_CLASS}(
-            {MODEL_ARG}=MODEL,
-            base_url=BASE_URL,
-            api_key=os.environ["API_KEY"],
-            generation_kwargs={{
-                "temperature": 0.8,
-                "max_new_tokens": {MAX_NUM_TOKENS},
-            }},
-        ),
+        llm={_get_llm_class()}.from_json({_get_llm().model_dump_json()}),
         n={num_labels},
         available_labels={labels},
         context=TEXT_CLASSIFICATION_TASK,

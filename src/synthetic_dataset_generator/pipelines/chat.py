@@ -1,12 +1,10 @@
 from distilabel.steps.tasks import ChatGeneration, Magpie, TextGeneration
 
 from synthetic_dataset_generator.constants import (
-    BASE_URL,
     MAGPIE_PRE_QUERY_TEMPLATE,
     MAX_NUM_TOKENS,
-    MODEL,
 )
-from synthetic_dataset_generator.pipelines.base import _get_llm
+from synthetic_dataset_generator.pipelines.base import _get_llm, _get_llm_class
 
 INFORMATION_SEEKING_PROMPT = (
     "You are an AI assistant designed to provide accurate and concise information on a wide"
@@ -237,28 +235,13 @@ import os
 from distilabel.pipeline import Pipeline
 from distilabel.steps import KeepColumns
 from distilabel.steps.tasks import MagpieGenerator
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.llms import {_get_llm_class()}
 
-MODEL = "{MODEL}"
-BASE_URL = "{BASE_URL}"
 SYSTEM_PROMPT = "{system_prompt}"
-os.environ["API_KEY"] = "hf_xxx" # https://huggingface.co/settings/tokens/new?ownUserPermissions=repo.content.read&ownUserPermissions=repo.write&globalPermissions=inference.serverless.write&canReadGatedRepos=true&tokenType=fineGrained
 
 with Pipeline(name="sft") as pipeline:
     magpie = MagpieGenerator(
-        llm=InferenceEndpointsLLM(
-            model_id=MODEL,
-            tokenizer_id=MODEL,
-            base_url=BASE_URL,
-            magpie_pre_query_template="llama3",
-            generation_kwargs={{
-                "temperature": {temperature},
-                "do_sample": True,
-                "max_new_tokens": {MAX_NUM_TOKENS},
-                "stop_sequences": {_STOP_SEQUENCES}
-            }},
-            api_key=os.environ["API_KEY"],
-        ),
+        llm={_get_llm_class()}.from_json({_get_llm().model_dump_json()})},
         n_turns={num_turns},
         num_rows={num_rows},
         batch_size=1,
