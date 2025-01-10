@@ -229,6 +229,7 @@ def get_response_generator(system_prompt, num_turns, temperature, is_sample):
 
 def generate_pipeline_code(system_prompt, num_turns, num_rows, temperature):
     input_mappings = _get_output_mappings(num_turns)
+
     code = f"""
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
 import os
@@ -241,7 +242,7 @@ SYSTEM_PROMPT = "{system_prompt}"
 
 with Pipeline(name="sft") as pipeline:
     magpie = MagpieGenerator(
-        llm={_get_llm_class()}.from_json({_get_llm().model_dump_json()})},
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
         n_turns={num_turns},
         num_rows={num_rows},
         batch_size=1,

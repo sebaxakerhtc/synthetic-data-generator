@@ -1,7 +1,7 @@
 import math
 import random
 
-from distilabel.llms import ClientvLLM, InferenceEndpointsLLM, OllamaLLM, OpenAILLM
+from distilabel.models import ClientvLLM, InferenceEndpointsLLM, OllamaLLM, OpenAILLM
 from distilabel.steps.tasks import TextGeneration
 
 from synthetic_dataset_generator.constants import (
