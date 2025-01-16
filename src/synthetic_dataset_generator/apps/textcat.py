@@ -20,7 +20,7 @@ from synthetic_dataset_generator.apps.base import (
     validate_push_to_hub,
 )
 from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE
-from synthetic_dataset_generator.pipelines.base import get_rewriten_prompts
+from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
 from synthetic_dataset_generator.pipelines.embeddings import (
     get_embeddings,
     get_sentence_embedding_dimensions,
@@ -120,7 +120,7 @@ def generate_dataset(
     # create text classification data
     n_processed = 0
     textcat_results = []
-    rewritten_system_prompts = get_rewriten_prompts(system_prompt, num_rows)
+    rewritten_system_prompts = get_rewritten_prompts(system_prompt, num_rows)
     while n_processed < num_rows:
         progress(
             2 * 0.5 * n_processed / num_rows,
@@ -314,6 +314,7 @@ def push_dataset(
         if client is None:
             return ""
         labels = get_preprocess_labels(labels)
+        progress(0.5, desc="Creating dataset in Argilla")
         settings = rg.Settings(
             fields=[
                 rg.TextField(
@@ -354,7 +355,6 @@ def push_dataset(
         dataframe["text_length"] = dataframe["text"].apply(len)
         dataframe["text_embeddings"] = get_embeddings(dataframe["text"].to_list())
 
-        progress(0.5, desc="Creating dataset")
         rg_dataset = client.datasets(name=repo_name, workspace=hf_user)
         if rg_dataset is None:
             rg_dataset = rg.Dataset(
@@ -559,7 +559,6 @@ with gr.Blocks() as app:
                         labels=labels.value,
                         num_labels=len(labels.value) if multi_label.value else 1,
                         num_rows=num_rows.value,
-                        temperature=temperature.value,
                     )
                     pipeline_code = gr.Code(
                         value=code,
@@ -644,7 +643,6 @@ with gr.Blocks() as app:
             labels,
             multi_label,
             num_rows,
-            temperature,
         ],
         outputs=[pipeline_code],
     ).success(
@@ -662,7 +660,7 @@ with gr.Blocks() as app:
             _get_dataframe(),
         ),
         inputs=[dataframe],
-        outputs=[dataset_description, system_prompt, labels, dataframe],
+        outputs=[dataset_description, system_prompt, labels, multi_label, dataframe],
     )
 
     app.load(fn=swap_visibility, outputs=main_ui)

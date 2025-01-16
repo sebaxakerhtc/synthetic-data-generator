@@ -19,6 +19,7 @@ from huggingface_hub import HfApi, repo_exists
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
+    get_iframe,
     hide_success_message,
     push_pipeline_code_to_hub,
     show_success_message,
@@ -46,25 +47,6 @@ from synthetic_dataset_generator.utils import (
     process_columns,
     swap_visibility,
 )
-
-
-def get_iframe(hub_repo_id: str) -> str:
-    if not hub_repo_id:
-        return ""
-
-    if not repo_exists(repo_id=hub_repo_id, repo_type="dataset"):
-        return ""
-
-    url = f"https://huggingface.co/datasets/{hub_repo_id}/embed/viewer"
-    iframe = f"""
-    <iframe
-        src="{url}"
-        frameborder="0"
-        width="100%"
-        height="600px"
-    ></iframe>
-    """
-    return iframe
 
 
 def get_valid_columns(dataframe: pd.DataFrame):
@@ -357,11 +339,15 @@ def push_dataset_to_hub(
     oauth_token: Union[gr.OAuthToken, None],
     private: bool,
     pipeline_code: str,
+    progress=gr.Progress(),
 ):
+    progress(0.0, desc="Validating")
     repo_id = validate_push_to_hub(org_name, repo_name)
+    progress(0.5, desc="Creating dataset")
     dataset = Dataset.from_pandas(dataframe)
     dataset = combine_datasets(repo_id, dataset, oauth_token)
     distiset = Distiset({"default": dataset})
+    progress(0.9, desc="Pushing dataset")
     distiset.push_to_hub(
         repo_id=repo_id,
         private=private,
@@ -370,6 +356,8 @@ def push_dataset_to_hub(
         create_pr=False,
     )
     push_pipeline_code_to_hub(pipeline_code, org_name, repo_name, oauth_token)
+    progress(1.0, desc="Dataset pushed")
+    return dataframe
 
 
 def push_dataset(
@@ -408,6 +396,7 @@ def push_dataset(
         client = get_argilla_client()
         if client is None:
             return ""
+        progress(0.5, desc="Creating dataset in Argilla")
         if eval_type == "chat-eval":
             num_generations = len((dataframe["generations"][0]))
             fields = [
@@ -488,7 +477,6 @@ def push_dataset(
                 dataframe["instruction"].to_list()
             )
 
-            progress(0.5, desc="Creating dataset")
             rg_dataset = client.datasets(name=repo_name, workspace=hf_user)
             if rg_dataset is None:
                 rg_dataset = rg.Dataset(
@@ -628,7 +616,6 @@ def push_dataset(
                 dataframe[f"{column}_length"] = dataframe[column].apply(len)
                 dataframe[f"{column}_embeddings"] = get_embeddings(dataframe[column])
 
-            progress(0.5, desc="Creating dataset")
             rg_dataset = client.datasets(name=repo_name, workspace=hf_user)
             if rg_dataset is None:
                 rg_dataset = rg.Dataset(
@@ -895,12 +882,11 @@ with gr.Blocks() as app:
         outputs=[pipeline_code_ui],
     )
 
-    clear_btn_part.click(fn=lambda x: "", inputs=[], outputs=[search_in])
+    clear_btn_part.click(fn=lambda : "", inputs=[], outputs=[search_in])
     clear_btn_full.click(
         fn=lambda df: ("", "", pd.DataFrame(columns=df.columns)),
         inputs=[dataframe],
         outputs=[
-            search_in,
             instruction_instruction_response,
             response_instruction_response,
         ],

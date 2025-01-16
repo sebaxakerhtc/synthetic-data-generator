@@ -6,7 +6,7 @@ import argilla as rg
 import gradio as gr
 from datasets import Dataset, concatenate_datasets, load_dataset
 from gradio import OAuthToken
-from huggingface_hub import HfApi, upload_file
+from huggingface_hub import HfApi, upload_file, repo_exists
 
 from synthetic_dataset_generator.constants import MAX_NUM_ROWS
 from synthetic_dataset_generator.utils import get_argilla_client
@@ -18,7 +18,7 @@ def validate_argilla_user_workspace_dataset(
     oauth_token: Union[OAuthToken, None] = None,
     progress=gr.Progress(),
 ) -> str:
-    progress(0, desc="Validating dataset configuration")
+    progress(0.1, desc="Validating dataset configuration")
     hf_user = HfApi().whoami(token=oauth_token.token)["name"]
     client = get_argilla_client()
     if dataset_name is None or dataset_name == "":
@@ -38,6 +38,7 @@ def validate_argilla_user_workspace_dataset(
     dataset = client.datasets(name=dataset_name, workspace=hf_user)
     if dataset and not add_to_existing_dataset:
         raise gr.Error(f"Dataset {dataset_name} already exists")
+    progress(1.0, desc="Dataset configuration validated")
     return ""
 
 
@@ -159,3 +160,22 @@ def test_max_num_rows(num_rows: int) -> int:
             f"Number of rows is larger than the configured maximum. Setting number of rows to {MAX_NUM_ROWS}. Set environment variable `MAX_NUM_ROWS` to change this behavior."
         )
     return num_rows
+
+
+def get_iframe(hub_repo_id: str) -> str:
+    if not hub_repo_id:
+        return ""
+
+    if not repo_exists(repo_id=hub_repo_id, repo_type="dataset"):
+        return ""
+
+    url = f"https://huggingface.co/datasets/{hub_repo_id}/embed/viewer"
+    iframe = f"""
+    <iframe
+        src="{url}"
+        frameborder="0"
+        width="100%"
+        height="600px"
+    ></iframe>
+    """
+    return iframe

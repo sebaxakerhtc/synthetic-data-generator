@@ -126,7 +126,6 @@ def generate_pipeline_code(
     labels: List[str] = None,
     num_labels: int = 1,
     num_rows: int = 10,
-    temperature: float = 0.9,
 ) -> str:
     labels = get_preprocess_labels(labels)
     base_code = f"""
@@ -142,10 +141,12 @@ SYSTEM_PROMPT = "{system_prompt}"
 
 with Pipeline(name="textcat") as pipeline:
 
-    task_generator = LoadDataFromDicts(data=[{{"task": TEXT_CLASSIFICATION_TASK}}])
+    task_generator = LoadDataFromDicts(data=[{{"task": SYSTEM_PROMPT}}])
 
     textcat_generation = GenerateTextClassificationData(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
+        ),
         seed=random.randint(0, 2**32 - 1),
         difficulty={None if difficulty == "mixed" else repr(difficulty)},
         clarity={None if clarity == "mixed" else repr(clarity)},
@@ -178,10 +179,12 @@ with Pipeline(name="textcat") as pipeline:
     )
 
     textcat_labeller = TextClassification(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
+        ),
         n={num_labels},
         available_labels={labels},
-        context=TEXT_CLASSIFICATION_TASK,
+        context=SYSTEM_PROMPT,
         default_label="unknown"
     )
 
