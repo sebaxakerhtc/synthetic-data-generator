@@ -116,7 +116,7 @@ def _preprocess_input_data(file_paths, num_rows, progress=gr.Progress(track_tqdm
     return (
         dataframe,
         gr.Dropdown(
-            choices=["chucks"],
+            choices=["chunks"],
             label="Documents column",
             value=col_doc,
             interactive=(False if col_doc == "" else True),
@@ -170,7 +170,7 @@ def generate_dataset(
     progress=gr.Progress(),
 ):
     num_rows = test_max_num_rows(num_rows)
-    progress(0.0, desc="Generating questions")
+    progress(0.0, desc="Initializing dataset generation")
     if input_type == "prompt-input":
         chunk_generator = get_chunks_generator(
             temperature=temperature, is_sample=is_sample
@@ -399,7 +399,9 @@ def push_dataset(
     retrieval = "Retrieval" in retrieval_reranking
     reranking = "Reranking" in retrieval_reranking
 
-    if input_type != "prompt-input":
+    if input_type == "prompt-input":
+        dataframe = pd.DataFrame(columns=["context", "question", "response"])
+    else:
         dataframe, _ = load_dataset_file(
             repo_id=original_repo_id,
             file_paths=file_paths,
@@ -522,8 +524,12 @@ def push_dataset(
         )
 
         for item in ["context", "question", "response"]:
-            dataframe[f"{item}_length"] = dataframe[item].apply(len)
-            dataframe[f"{item}_embeddings"] = get_embeddings(dataframe[item].to_list())
+            dataframe[f"{item}_length"] = dataframe[item].apply(
+                lambda x: len(x) if x is not None else 0
+            )
+            dataframe[f"{item}_embeddings"] = get_embeddings(
+                dataframe[item].apply(lambda x: x if x is not None else "").to_list()
+            )
 
         rg_dataset = client.datasets(name=repo_name, workspace=hf_user)
         if rg_dataset is None:

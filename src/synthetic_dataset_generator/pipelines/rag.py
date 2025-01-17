@@ -18,11 +18,11 @@ DEFAULT_DATASET_DESCRIPTIONS = [
 
 PROMPT_CREATION_PROMPT = """
 
-You are an AI assistant specialized in designing retrieval-augmented generation (RAG) tasks for dataset creation.
+You are an AI assistant specialized in designing retrieval-augmented generation (RAG) tasks for dataset generation.
 
-Your task is to generate a well-structured and descriptive prompt based on the provided dataset description and company context. Respond with only the generated prompt and nothing else.
+Your task is to generate a well-structured and descriptive prompt based on the provided dataset description. Respond with only the generated prompt and nothing else.
 
-The prompt should closely follow the style and structure of the example prompts below. Ensure that you include all relevant details from the dataset description and reflect the company context accurately.
+The prompt should closely follow the style and structure of the example prompts below. Ensure that you include all relevant details from the dataset description.
 
 Description: A dataset to retrieve information from legal documents.
 Output: A dataset to retrieve information from a collection of legal documents related to the US law system and the status of contracts.
@@ -48,9 +48,9 @@ Do not include or reference the retrieval task itself in the generated chunks.
 
 CHUNKS_TEMPLATE = """You have been assigned to generate text chunks based on the following retrieval task: {{ task }}.
 
-Provide only the text chunks without explaining your process or reasoning.
+Provide only the text chunks without explaining your process or reasoning. Do not include any additional information. Do not indicate that it is a text chunk.
 
-Ensure the chunks are clear, accurate, and directly relevant to the task.
+Ensure the chunks are concise, clear, and directly relevant to the task.
 
 Use your general knowledge to create informative and precise outputs.
 """
@@ -145,12 +145,12 @@ def generate_pipeline_code(
     retrieval_reranking: list[str],
     num_rows: int = 10,
 ) -> str:
-    if repo_id is None:
-        subset = "default"
-        split = "train"
-    else:
+    if input_type == "dataset-input" and repo_id is not None:
         subset = get_dataset_config_names(repo_id)[0]
         split = get_dataset_split_names(repo_id, subset)[0]
+    else:
+        subset = "default"
+        split = "train"
     retrieval = "Retrieval" in retrieval_reranking
     reranking = "Reranking" in retrieval_reranking
     base_code = f"""
