@@ -424,6 +424,13 @@ def push_dataset(
     push_dataset_to_hub(
         dataframe, org_name, repo_name, oauth_token, private, pipeline_code
     )
+    dataframe = dataframe[
+        dataframe.applymap(
+            lambda x: str(x).strip() if pd.notna(x) else x
+        ).apply(
+            lambda row: row.notna().all() and (row != "").all(), axis=1
+        )
+    ]
     try:
         progress(0.1, desc="Setting up user and workspace")
         hf_user = HfApi().whoami(token=oauth_token.token)["name"]
@@ -563,7 +570,13 @@ def show_document_column_visibility():
 
 
 def hide_document_column_visibility():
-    return {document_column: gr.Dropdown(visible=False)}
+    return {
+        document_column: gr.Dropdown(
+            choices=["Load your data first in step 1."],
+            value="Load your data first in step 1.",
+            visible=False,
+        )
+    }
 
 
 def show_pipeline_code_visibility():
