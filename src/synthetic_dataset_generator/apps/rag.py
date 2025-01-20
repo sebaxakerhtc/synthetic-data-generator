@@ -1,3 +1,4 @@
+import os
 import random
 import uuid
 from tqdm import tqdm
@@ -51,8 +52,11 @@ from synthetic_dataset_generator.utils import (
     get_random_repo_name,
     swap_visibility,
 )
-nltk.download("punkt_tab")
-nltk.download("averaged_perceptron_tagger_eng",download_dir="./nltk_data/")
+
+os.makedirs("./nltk_data", exist_ok=True)
+nltk.data.path.append("./nltk_data")
+nltk.download("punkt", download_dir="./nltk_data")
+nltk.download("averaged_perceptron_tagger", download_dir="./nltk_data")
 
 def _get_valid_columns(dataframe: pd.DataFrame):
     doc_valid_columns = []
