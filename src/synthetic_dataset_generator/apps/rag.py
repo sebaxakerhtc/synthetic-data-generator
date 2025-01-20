@@ -52,7 +52,7 @@ from synthetic_dataset_generator.utils import (
     swap_visibility,
 )
 nltk.download("punkt_tab")
-nltk.download("averaged_perceptron_tagger")
+nltk.download("averaged_perceptron_tagger_eng")
 
 def _get_valid_columns(dataframe: pd.DataFrame):
     doc_valid_columns = []
