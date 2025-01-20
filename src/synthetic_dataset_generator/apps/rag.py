@@ -5,6 +5,7 @@ from typing import Union
 
 import argilla as rg
 import gradio as gr
+import nltk
 import pandas as pd
 from datasets import (
     Dataset,
@@ -50,7 +51,7 @@ from synthetic_dataset_generator.utils import (
     get_random_repo_name,
     swap_visibility,
 )
-
+nltk.download("punkt_tab")
 
 def _get_valid_columns(dataframe: pd.DataFrame):
     doc_valid_columns = []
