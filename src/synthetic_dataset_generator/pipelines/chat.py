@@ -130,11 +130,13 @@ if MAGPIE_PRE_QUERY_TEMPLATE == "llama3":
         " \n\n",
     ]
 elif MAGPIE_PRE_QUERY_TEMPLATE == "qwen2":
+    _STOP_SEQUENCES = ["<|im_end|>", "<|im_start|>", "assistant", "\n\n"]
+else:
     _STOP_SEQUENCES = [
-        "<|im_end|>",
-        "<|im_start|>",
+        "<|eot_id|>",
+        "<|start_header_id|>",
         "assistant",
-        " \n",
+        " \n\n",
     ]
 
 
