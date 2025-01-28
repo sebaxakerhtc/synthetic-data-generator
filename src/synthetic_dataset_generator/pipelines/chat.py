@@ -212,7 +212,7 @@ def get_response_generator(
             "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.5),
         }
         response_generator = TextGeneration(
-            llm=_get_llm(generation_kwargs=generation_kwargs),
+            llm=_get_llm(is_completion=True, generation_kwargs=generation_kwargs),
             system_prompt=system_prompt,
             output_mappings={"generation": "completion"},
             input_mappings={"instruction": "prompt"},
@@ -223,7 +223,7 @@ def get_response_generator(
             "max_new_tokens": MAX_NUM_TOKENS,
         }
         response_generator = ChatGeneration(
-            llm=_get_llm(generation_kwargs=generation_kwargs),
+            llm=_get_llm(is_completion=True, generation_kwargs=generation_kwargs),
             output_mappings={"generation": "completion"},
             input_mappings={"conversation": "messages"},
         )
