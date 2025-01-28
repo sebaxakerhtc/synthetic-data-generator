@@ -76,7 +76,7 @@ def _load_dataset_from_hub(
     progress=gr.Progress(track_tqdm=True),
 ):
     if not repo_id:
-        raise gr.Error("Hub repo id is required")
+        raise gr.Error("Please provide a Hub repo ID")
     subsets = get_dataset_config_names(repo_id, token=token)
     splits = get_dataset_split_names(repo_id, subsets[0], token=token)
     ds = load_dataset(repo_id, subsets[0], split=splits[0], token=token, streaming=True)
@@ -102,6 +102,9 @@ def _load_dataset_from_hub(
 
 
 def _preprocess_input_data(file_paths: list[str], num_rows: int, progress=gr.Progress(track_tqdm=True)):
+    if not file_paths:
+        raise gr.Error("Please provide an input file")
+
     data = {}
     total_chunks = 0
 
