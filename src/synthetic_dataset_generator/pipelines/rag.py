@@ -87,7 +87,7 @@ def get_prompt_generator():
     return text_generator
 
 
-def get_chunks_generator(temperature, is_sample):
+def get_chunks_generator(temperature: float, is_sample: bool):
     generation_kwargs = {
         "temperature": temperature,
         "max_new_tokens": MAX_NUM_TOKENS if is_sample else 256,
@@ -104,7 +104,7 @@ def get_chunks_generator(temperature, is_sample):
     return text_generator
 
 
-def get_sentence_pair_generator(action, triplet, temperature, is_sample):
+def get_sentence_pair_generator(action: str, triplet: bool, temperature: float, is_sample: bool):
     generation_kwargs = {
         "temperature": temperature,
         "max_new_tokens": 256 if is_sample else MAX_NUM_TOKENS,
@@ -119,7 +119,7 @@ def get_sentence_pair_generator(action, triplet, temperature, is_sample):
     return sentence_pair_generator
 
 
-def get_response_generator(temperature, is_sample):
+def get_response_generator(temperature: float, is_sample: bool):
     generation_kwargs = {
         "temperature": temperature,
         "max_new_tokens": MAX_NUM_TOKENS if is_sample else 256,
@@ -138,7 +138,6 @@ def get_response_generator(temperature, is_sample):
 
 def generate_pipeline_code(
     repo_id: str,
-    file_paths: List[str],
     input_type: str,
     system_prompt: str,
     document_column: str,

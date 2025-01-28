@@ -60,7 +60,7 @@ def convert_dataframe_messages(dataframe: pd.DataFrame) -> pd.DataFrame:
     return dataframe
 
 
-def generate_system_prompt(dataset_description, progress=gr.Progress()):
+def generate_system_prompt(dataset_description: str, progress=gr.Progress()):
     progress(0.1, desc="Initializing")
     generate_description = get_prompt_generator()
     progress(0.5, desc="Generating")
@@ -77,7 +77,7 @@ def generate_system_prompt(dataset_description, progress=gr.Progress()):
     return result
 
 
-def generate_sample_dataset(system_prompt, num_turns, progress=gr.Progress()):
+def generate_sample_dataset(system_prompt: str, num_turns: int, progress=gr.Progress()):
     progress(0.1, desc="Generating sample dataset")
     dataframe = generate_dataset(
         system_prompt=system_prompt,
@@ -109,7 +109,7 @@ def generate_dataset(
     num_rows = test_max_num_rows(num_rows)
     progress(0.0, desc="(1/2) Generating instructions")
     magpie_generator = get_magpie_generator(
-        system_prompt, num_turns, temperature, is_sample
+        num_turns, temperature, is_sample
     )
     response_generator = get_response_generator(
         system_prompt, num_turns, temperature, is_sample
@@ -267,7 +267,12 @@ def push_dataset(
         temperature=temperature,
     )
     push_dataset_to_hub(
-        dataframe, org_name, repo_name, oauth_token, private, pipeline_code
+        dataframe=dataframe,
+        org_name=org_name,
+        repo_name=repo_name,
+        oauth_token=oauth_token,
+        private=private,
+        pipeline_code=pipeline_code,
     )
     try:
         progress(0.1, desc="Setting up user and workspace")
@@ -524,77 +529,77 @@ with gr.Blocks() as app:
                             label="Distilabel Pipeline Code",
                         )
 
-            load_btn.click(
-                fn=generate_system_prompt,
-                inputs=[dataset_description],
-                outputs=[system_prompt],
-                show_progress=True,
-            ).then(
-                fn=generate_sample_dataset,
-                inputs=[system_prompt, num_turns],
-                outputs=[dataframe],
-                show_progress=True,
-            )
+    load_btn.click(
+        fn=generate_system_prompt,
+        inputs=[dataset_description],
+        outputs=[system_prompt],
+        show_progress=True,
+    ).then(
+        fn=generate_sample_dataset,
+        inputs=[system_prompt, num_turns],
+        outputs=[dataframe],
+        show_progress=True,
+    )
 
-            btn_apply_to_sample_dataset.click(
-                fn=generate_sample_dataset,
-                inputs=[system_prompt, num_turns],
-                outputs=[dataframe],
-                show_progress=True,
-            )
+    btn_apply_to_sample_dataset.click(
+        fn=generate_sample_dataset,
+        inputs=[system_prompt, num_turns],
+        outputs=[dataframe],
+        show_progress=True,
+    )
 
-            btn_push_to_hub.click(
-                fn=validate_argilla_user_workspace_dataset,
-                inputs=[repo_name],
-                outputs=[success_message],
-                show_progress=True,
-            ).then(
-                fn=validate_push_to_hub,
-                inputs=[org_name, repo_name],
-                outputs=[success_message],
-                show_progress=True,
-            ).success(
-                fn=hide_success_message,
-                outputs=[success_message],
-                show_progress=True,
-            ).success(
-                fn=hide_pipeline_code_visibility,
-                inputs=[],
-                outputs=[pipeline_code_ui],
-                show_progress=True,
-            ).success(
-                fn=push_dataset,
-                inputs=[
-                    org_name,
-                    repo_name,
-                    system_prompt,
-                    num_turns,
-                    num_rows,
-                    private,
-                    temperature,
-                    pipeline_code,
-                ],
-                outputs=[success_message],
-                show_progress=True,
-            ).success(
-                fn=show_success_message,
-                inputs=[org_name, repo_name],
-                outputs=[success_message],
-            ).success(
-                fn=generate_pipeline_code,
-                inputs=[system_prompt, num_turns, num_rows],
-                outputs=[pipeline_code],
-            ).success(
-                fn=show_pipeline_code_visibility,
-                inputs=[],
-                outputs=[pipeline_code_ui],
-            )
-            gr.on(
-                triggers=[clear_btn_part.click, clear_btn_full.click],
-                fn=lambda _: ("", "", 1, _get_dataframe()),
-                inputs=[dataframe],
-                outputs=[system_prompt, num_turns, dataframe],
-            )
-            app.load(fn=get_org_dropdown, outputs=[org_name])
-        app.load(fn=get_random_repo_name, outputs=[repo_name])
-        app.load(fn=swap_visibility, outputs=main_ui)
+    btn_push_to_hub.click(
+        fn=validate_argilla_user_workspace_dataset,
+        inputs=[repo_name],
+        outputs=[success_message],
+        show_progress=True,
+    ).then(
+        fn=validate_push_to_hub,
+        inputs=[org_name, repo_name],
+        outputs=[success_message],
+        show_progress=True,
+    ).success(
+        fn=hide_success_message,
+        outputs=[success_message],
+        show_progress=True,
+    ).success(
+        fn=hide_pipeline_code_visibility,
+        inputs=[],
+        outputs=[pipeline_code_ui],
+        show_progress=True,
+    ).success(
+        fn=push_dataset,
+        inputs=[
+            org_name,
+            repo_name,
+            system_prompt,
+            num_turns,
+            num_rows,
+            private,
+            temperature,
+            pipeline_code,
+        ],
+        outputs=[success_message],
+        show_progress=True,
+    ).success(
+        fn=show_success_message,
+        inputs=[org_name, repo_name],
+        outputs=[success_message],
+    ).success(
+        fn=generate_pipeline_code,
+        inputs=[system_prompt, num_turns, num_rows],
+        outputs=[pipeline_code],
+    ).success(
+        fn=show_pipeline_code_visibility,
+        inputs=[],
+        outputs=[pipeline_code_ui],
+    )
+    gr.on(
+        triggers=[clear_btn_part.click, clear_btn_full.click],
+        fn=lambda _: ("", "", 1, _get_dataframe()),
+        inputs=[dataframe],
+        outputs=[dataset_description, system_prompt, num_turns, dataframe],
+    )
+    app.load(fn=get_org_dropdown, outputs=[org_name])
+    app.load(fn=get_random_repo_name, outputs=[repo_name])
+    app.load(fn=swap_visibility, outputs=main_ui)

@@ -85,7 +85,9 @@ def get_prompt_generator():
     return prompt_generator
 
 
-def get_textcat_generator(difficulty, clarity, temperature, is_sample):
+def get_textcat_generator(
+    difficulty: str, clarity: str, temperature: float, is_sample: bool
+):
     generation_kwargs = {
         "temperature": temperature,
         "max_new_tokens": 256 if is_sample else MAX_NUM_TOKENS,
@@ -102,7 +104,7 @@ def get_textcat_generator(difficulty, clarity, temperature, is_sample):
     return textcat_generator
 
 
-def get_labeller_generator(system_prompt, labels, multi_label):
+def get_labeller_generator(system_prompt: str, labels: List[str], multi_label: bool):
     generation_kwargs = {
         "temperature": 0.01,
         "max_new_tokens": MAX_NUM_TOKENS,

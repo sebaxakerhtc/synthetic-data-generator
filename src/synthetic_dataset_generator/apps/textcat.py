@@ -49,7 +49,7 @@ def _get_dataframe():
     )
 
 
-def generate_system_prompt(dataset_description, progress=gr.Progress()):
+def generate_system_prompt(dataset_description: str, progress=gr.Progress()):
     progress(0.0, desc="Starting")
     progress(0.3, desc="Initializing")
     generate_description = get_prompt_generator()
@@ -71,7 +71,12 @@ def generate_system_prompt(dataset_description, progress=gr.Progress()):
 
 
 def generate_sample_dataset(
-    system_prompt, difficulty, clarity, labels, multi_label, progress=gr.Progress()
+    system_prompt: str,
+    difficulty: str,
+    clarity: str,
+    labels: List[str],
+    multi_label: bool,
+    progress=gr.Progress(),
 ):
     dataframe = generate_dataset(
         system_prompt=system_prompt,
@@ -294,14 +299,14 @@ def push_dataset(
         temperature=temperature,
     )
     push_dataset_to_hub(
-        dataframe,
-        org_name,
-        repo_name,
-        multi_label,
-        labels,
-        oauth_token,
-        private,
-        pipeline_code,
+        dataframe=dataframe,
+        org_name=org_name,
+        repo_name=repo_name,
+        multi_label=multi_label,
+        labels=labels,
+        oauth_token=oauth_token,
+        private=private,
+        pipeline_code=pipeline_code,
     )
 
     dataframe = dataframe[
@@ -657,6 +662,7 @@ with gr.Blocks() as app:
             "",
             "",
             [],
+            "",
             _get_dataframe(),
         ),
         inputs=[dataframe],

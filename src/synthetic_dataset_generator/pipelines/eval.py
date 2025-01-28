@@ -1,3 +1,5 @@
+from typing import List
+
 from datasets import get_dataset_config_names, get_dataset_split_names
 from distilabel.models import InferenceEndpointsLLM
 from distilabel.steps.tasks import (
@@ -10,7 +12,7 @@ from synthetic_dataset_generator.pipelines.base import _get_next_api_key
 from synthetic_dataset_generator.utils import extract_column_names
 
 
-def get_ultrafeedback_evaluator(aspect, is_sample):
+def get_ultrafeedback_evaluator(aspect: str, is_sample: bool):
     ultrafeedback_evaluator = UltraFeedback(
         llm=InferenceEndpointsLLM(
             model_id=MODEL,
@@ -27,7 +29,9 @@ def get_ultrafeedback_evaluator(aspect, is_sample):
     return ultrafeedback_evaluator
 
 
-def get_custom_evaluator(prompt_template, structured_output, columns, is_sample):
+def get_custom_evaluator(
+    prompt_template: str, structured_output: dict, columns: List[str], is_sample: bool
+):
     custom_evaluator = TextGeneration(
         llm=InferenceEndpointsLLM(
             model_id=MODEL,
@@ -47,7 +51,13 @@ def get_custom_evaluator(prompt_template, structured_output, columns, is_sample)
 
 
 def generate_ultrafeedback_pipeline_code(
-    repo_id, subset, split, aspects, instruction_column, response_columns, num_rows
+    repo_id: str,
+    subset: str,
+    split: str,
+    aspects: List[str],
+    instruction_column: str,
+    response_columns: str,
+    num_rows: int,
 ):
     if len(aspects) == 1:
         code = f"""
