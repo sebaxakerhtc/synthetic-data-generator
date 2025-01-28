@@ -60,7 +60,7 @@ def convert_dataframe_messages(dataframe: pd.DataFrame) -> pd.DataFrame:
     return dataframe
 
 
-def generate_system_prompt(dataset_description, progress=gr.Progress()):
+def generate_system_prompt(dataset_description: str, progress=gr.Progress()):
     progress(0.1, desc="Initializing")
     generate_description = get_prompt_generator()
     progress(0.5, desc="Generating")
@@ -77,7 +77,7 @@ def generate_system_prompt(dataset_description, progress=gr.Progress()):
     return result
 
 
-def generate_sample_dataset(system_prompt, num_turns, progress=gr.Progress()):
+def generate_sample_dataset(system_prompt: str, num_turns: int, progress=gr.Progress()):
     progress(0.1, desc="Generating sample dataset")
     dataframe = generate_dataset(
         system_prompt=system_prompt,
@@ -109,7 +109,7 @@ def generate_dataset(
     num_rows = test_max_num_rows(num_rows)
     progress(0.0, desc="(1/2) Generating instructions")
     magpie_generator = get_magpie_generator(
-        system_prompt, num_turns, temperature, is_sample
+        num_turns, temperature, is_sample
     )
     response_generator = get_response_generator(
         system_prompt, num_turns, temperature, is_sample
@@ -267,7 +267,12 @@ def push_dataset(
         temperature=temperature,
     )
     push_dataset_to_hub(
-        dataframe, org_name, repo_name, oauth_token, private, pipeline_code
+        dataframe=dataframe,
+        org_name=org_name,
+        repo_name=repo_name,
+        oauth_token=oauth_token,
+        private=private,
+        pipeline_code=pipeline_code,
     )
     try:
         progress(0.1, desc="Setting up user and workspace")

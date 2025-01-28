@@ -140,7 +140,7 @@ else:
     ]
 
 
-def _get_output_mappings(num_turns):
+def _get_output_mappings(num_turns: int):
     if num_turns == 1:
         return {"instruction": "prompt", "response": "completion"}
     else:
@@ -162,7 +162,7 @@ def get_prompt_generator():
     return prompt_generator
 
 
-def get_magpie_generator(system_prompt, num_turns, temperature, is_sample):
+def get_magpie_generator(num_turns: int, temperature: float, is_sample: bool):
     input_mappings = _get_output_mappings(num_turns)
     output_mappings = input_mappings.copy()
     if num_turns == 1:
@@ -203,7 +203,9 @@ def get_magpie_generator(system_prompt, num_turns, temperature, is_sample):
     return magpie_generator
 
 
-def get_response_generator(system_prompt, num_turns, temperature, is_sample):
+def get_response_generator(
+    system_prompt: str, num_turns: int, temperature: float, is_sample: bool
+):
     if num_turns == 1:
         generation_kwargs = {
             "temperature": temperature,
@@ -229,7 +231,7 @@ def get_response_generator(system_prompt, num_turns, temperature, is_sample):
     return response_generator
 
 
-def generate_pipeline_code(system_prompt, num_turns, num_rows):
+def generate_pipeline_code(system_prompt: str, num_turns: int, num_rows: int):
     input_mappings = _get_output_mappings(num_turns)
 
     code = f"""

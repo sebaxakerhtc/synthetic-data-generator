@@ -101,7 +101,7 @@ def _load_dataset_from_hub(
     )
 
 
-def _preprocess_input_data(file_paths, num_rows, progress=gr.Progress(track_tqdm=True)):
+def _preprocess_input_data(file_paths: list[str], num_rows: int, progress=gr.Progress(track_tqdm=True)):
     data = {}
     total_chunks = 0
 
@@ -131,7 +131,7 @@ def _preprocess_input_data(file_paths, num_rows, progress=gr.Progress(track_tqdm
     )
 
 
-def generate_system_prompt(dataset_description, progress=gr.Progress()):
+def generate_system_prompt(dataset_description: str, progress=gr.Progress()):
     progress(0.1, desc="Initializing")
     generate_description = get_prompt_generator()
     progress(0.5, desc="Generating")
@@ -753,7 +753,6 @@ with gr.Blocks() as app:
                 ) as pipeline_code_ui:
                     code = generate_pipeline_code(
                         repo_id=search_in.value,
-                        file_paths=file_in.value,
                         input_type=input_type.value,
                         system_prompt=system_prompt.value,
                         document_column=document_column.value,
@@ -891,7 +890,6 @@ with gr.Blocks() as app:
         fn=generate_pipeline_code,
         inputs=[
             search_in,
-            file_in,
             input_type,
             system_prompt,
             document_column,

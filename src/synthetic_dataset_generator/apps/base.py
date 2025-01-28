@@ -64,7 +64,7 @@ def push_pipeline_code_to_hub(
     progress(1.0, desc="Pipeline code uploaded")
 
 
-def validate_push_to_hub(org_name, repo_name):
+def validate_push_to_hub(org_name: str, repo_name: str):
     repo_id = (
         f"{org_name}/{repo_name}"
         if repo_name is not None and org_name is not None
@@ -93,7 +93,7 @@ def combine_datasets(
         return dataset
 
 
-def show_success_message(org_name, repo_name) -> gr.Markdown:
+def show_success_message(org_name: str, repo_name: str) -> gr.Markdown:
     client = get_argilla_client()
     if client is None:
         return gr.Markdown(
