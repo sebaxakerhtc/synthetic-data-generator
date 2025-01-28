@@ -598,7 +598,7 @@ with gr.Blocks() as app:
         triggers=[clear_btn_part.click, clear_btn_full.click],
         fn=lambda _: ("", "", 1, _get_dataframe()),
         inputs=[dataframe],
-        outputs=[system_prompt, num_turns, dataframe],
+        outputs=[dataset_description, system_prompt, num_turns, dataframe],
     )
     app.load(fn=get_org_dropdown, outputs=[org_name])
     app.load(fn=get_random_repo_name, outputs=[repo_name])

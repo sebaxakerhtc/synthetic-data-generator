@@ -662,6 +662,7 @@ with gr.Blocks() as app:
             "",
             "",
             [],
+            "",
             _get_dataframe(),
         ),
         inputs=[dataframe],

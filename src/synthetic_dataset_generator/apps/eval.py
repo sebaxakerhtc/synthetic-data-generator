@@ -889,6 +889,7 @@ with gr.Blocks() as app:
         outputs=[
             instruction_instruction_response,
             response_instruction_response,
+            dataframe
         ],
     )
 
