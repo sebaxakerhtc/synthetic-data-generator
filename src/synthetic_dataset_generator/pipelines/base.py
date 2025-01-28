@@ -9,6 +9,7 @@ from synthetic_dataset_generator.constants import (
     DEFAULT_BATCH_SIZE,
     HUGGINGFACE_BASE_URL,
     MODEL,
+    MODEL_COMPLETION,
     OLLAMA_BASE_URL,
     OPENAI_BASE_URL,
     TOKENIZER_ID,
@@ -73,10 +74,10 @@ def _get_llm_class() -> str:
         return "InferenceEndpointsLLM"
 
 
-def _get_llm(use_magpie_template=False, **kwargs):
+def _get_llm(use_magpie_template=False, is_completion=False, **kwargs):
     if OPENAI_BASE_URL:
         llm = OpenAILLM(
-            model=MODEL,
+            model=MODEL_COMPLETION if is_completion else MODEL,
             base_url=OPENAI_BASE_URL,
             api_key=_get_next_api_key(),
             **kwargs,
@@ -108,7 +109,7 @@ def _get_llm(use_magpie_template=False, **kwargs):
             kwargs["generation_kwargs"] = {}
             kwargs["generation_kwargs"]["options"] = options
         llm = OllamaLLM(
-            model=MODEL,
+            model=MODEL_COMPLETION if is_completion else MODEL,
             host=OLLAMA_BASE_URL,
             tokenizer_id=TOKENIZER_ID or MODEL,
             use_magpie_template=use_magpie_template,
@@ -119,7 +120,7 @@ def _get_llm(use_magpie_template=False, **kwargs):
         llm = InferenceEndpointsLLM(
             api_key=_get_next_api_key(),
             base_url=HUGGINGFACE_BASE_URL,
-            tokenizer_id=TOKENIZER_ID or MODEL,
+            tokenizer_id=TOKENIZER_ID or MODEL_COMPLETION if is_completion else MODEL,
             use_magpie_template=use_magpie_template,
             **kwargs,
         )
@@ -129,8 +130,8 @@ def _get_llm(use_magpie_template=False, **kwargs):
                 del kwargs["generation_kwargs"]["do_sample"]
         llm = ClientvLLM(
             base_url=VLLM_BASE_URL,
-            model=MODEL,
-            tokenizer=TOKENIZER_ID or MODEL,
+            model=MODEL_COMPLETION if is_completion else MODEL,
+            tokenizer=TOKENIZER_ID or MODEL_COMPLETION if is_completion else MODEL,
             api_key=_get_next_api_key(),
             use_magpie_template=use_magpie_template,
             **kwargs,
@@ -139,7 +140,7 @@ def _get_llm(use_magpie_template=False, **kwargs):
         llm = InferenceEndpointsLLM(
             api_key=_get_next_api_key(),
             tokenizer_id=TOKENIZER_ID or MODEL,
-            model_id=MODEL,
+            model_id=MODEL_COMPLETION if is_completion else MODEL,
             use_magpie_template=use_magpie_template,
             **kwargs,
         )

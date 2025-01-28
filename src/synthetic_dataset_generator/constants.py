@@ -3,10 +3,6 @@ import warnings
 
 import argilla as rg
 
-# Tasks
-TEXTCAT_TASK = "text_classification"
-SFT_TASK = "supervised_fine_tuning"
-
 # Inference
 MAX_NUM_TOKENS = int(os.getenv("MAX_NUM_TOKENS", 2048))
 MAX_NUM_ROWS = int(os.getenv("MAX_NUM_ROWS", 1000))
@@ -14,6 +10,9 @@ DEFAULT_BATCH_SIZE = int(os.getenv("DEFAULT_BATCH_SIZE", 5))
 
 # Models
 MODEL = os.getenv("MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
+MODEL_COMPLETION = os.getenv(
+    "MODEL_COMPLETION", MODEL
+)
 TOKENIZER_ID = os.getenv(key="TOKENIZER_ID", default=None)
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
