@@ -79,12 +79,20 @@ def _get_llm_class() -> str:
         return "InferenceEndpointsLLM"
 
 
-def _get_llm(use_magpie_template=False, is_completion=False, **kwargs):
+def _get_llm(
+    structured_output: dict = None,
+    use_magpie_template: str = False,
+    is_completion: bool = False,
+    **kwargs,
+):
+    model = MODEL_COMPLETION if is_completion else MODEL
+    tokenizer_id = TOKENIZER_ID_COMPLETION if is_completion else TOKENIZER_ID or model
     if OPENAI_BASE_URL:
         llm = OpenAILLM(
-            model=MODEL_COMPLETION if is_completion else MODEL,
+            model=model,
             base_url=OPENAI_BASE_URL_COMPLETION if is_completion else OPENAI_BASE_URL,
             api_key=_get_next_api_key(),
+            structured_output=structured_output,
             **kwargs,
         )
         if "generation_kwargs" in kwargs:
@@ -114,19 +122,25 @@ def _get_llm(use_magpie_template=False, is_completion=False, **kwargs):
             kwargs["generation_kwargs"] = {}
             kwargs["generation_kwargs"]["options"] = options
         llm = OllamaLLM(
-            model=MODEL_COMPLETION if is_completion else MODEL,
+            model=model,
             host=OLLAMA_BASE_URL_COMPLETION if is_completion else OLLAMA_BASE_URL,
-            tokenizer_id=TOKENIZER_ID_COMPLETION if is_completion else TOKENIZER_ID  or MODEL_COMPLETION if is_completion else MODEL,
+            tokenizer_id=tokenizer_id,
             use_magpie_template=use_magpie_template,
+            structured_output=structured_output,
             **kwargs,
         )
     elif HUGGINGFACE_BASE_URL:
         kwargs["generation_kwargs"]["do_sample"] = True
         llm = InferenceEndpointsLLM(
             api_key=_get_next_api_key(),
-            base_url=HUGGINGFACE_BASE_URL_COMPLETION if is_completion else HUGGINGFACE_BASE_URL,
-            tokenizer_id=TOKENIZER_ID_COMPLETION if is_completion else TOKENIZER_ID  or MODEL_COMPLETION if is_completion else MODEL,
+            base_url=(
+                HUGGINGFACE_BASE_URL_COMPLETION
+                if is_completion
+                else HUGGINGFACE_BASE_URL
+            ),
+            tokenizer_id=tokenizer_id,
             use_magpie_template=use_magpie_template,
+            structured_output=structured_output,
             **kwargs,
         )
     elif VLLM_BASE_URL:
@@ -135,18 +149,20 @@ def _get_llm(use_magpie_template=False, is_completion=False, **kwargs):
                 del kwargs["generation_kwargs"]["do_sample"]
         llm = ClientvLLM(
             base_url=VLLM_BASE_URL_COMPLETION if is_completion else VLLM_BASE_URL,
-            model=MODEL_COMPLETION if is_completion else MODEL,
-            tokenizer=TOKENIZER_ID_COMPLETION if is_completion else TOKENIZER_ID or MODEL_COMPLETION if is_completion else MODEL,
+            model=model,
+            tokenizer=tokenizer_id,
             api_key=_get_next_api_key(),
             use_magpie_template=use_magpie_template,
+            structured_output=structured_output,
             **kwargs,
         )
     else:
         llm = InferenceEndpointsLLM(
             api_key=_get_next_api_key(),
-            tokenizer_id=TOKENIZER_ID_COMPLETION if is_completion else TOKENIZER_ID  or MODEL_COMPLETION if is_completion else MODEL,  
-            model_id=MODEL_COMPLETION if is_completion else MODEL,
+            tokenizer_id=tokenizer_id,
+            model_id=model,
             use_magpie_template=use_magpie_template,
+            structured_output=structured_output,
             **kwargs,
         )
 
