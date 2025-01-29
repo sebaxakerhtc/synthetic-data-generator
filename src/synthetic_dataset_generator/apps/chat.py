@@ -8,11 +8,15 @@ import gradio as gr
 import pandas as pd
 from datasets import Dataset
 from distilabel.distiset import Distiset
+from gradio.oauth import OAuthToken
+from gradio_huggingfacehub_search import HuggingfaceHubSearch
 from huggingface_hub import HfApi
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
     hide_success_message,
+    load_dataset_from_hub,
+    preprocess_input_data,
     push_pipeline_code_to_hub,
     show_success_message,
     test_max_num_rows,
@@ -43,6 +47,14 @@ from synthetic_dataset_generator.utils import (
     get_random_repo_name,
     swap_visibility,
 )
+
+
+def _get_dataframe():
+    return gr.Dataframe(
+        headers=["prompt", "completion"],
+        wrap=True,
+        interactive=False,
+    )
 
 
 def convert_dataframe_messages(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -77,28 +89,57 @@ def generate_system_prompt(dataset_description: str, progress=gr.Progress()):
     return result
 
 
-def generate_sample_dataset(system_prompt: str, num_turns: int, progress=gr.Progress()):
-    progress(0.1, desc="Generating sample dataset")
+def load_dataset_file(
+    repo_id: str,
+    file_paths: list[str],
+    input_type: str,
+    num_rows: int = 10,
+    token: Union[OAuthToken, None] = None,
+    progress=gr.Progress(),
+):
+    progress(0.1, desc="Loading the source data")
+    if input_type == "dataset-input":
+        return load_dataset_from_hub(repo_id, num_rows, token)
+    else:
+        return preprocess_input_data(file_paths, num_rows)
+
+
+def generate_sample_dataset(
+    repo_id: str,
+    file_paths: list[str],
+    input_type: str,
+    system_prompt: str,
+    document_column: str,
+    num_turns: int,
+    oauth_token: Union[OAuthToken, None],
+    progress=gr.Progress(),
+):
+    if input_type == "prompt-input":
+        dataframe = pd.DataFrame(columns=["prompt", "completion"])
+    else:
+        dataframe, _ = load_dataset_file(
+            repo_id=repo_id,
+            file_paths=file_paths,
+            input_type=input_type,
+            num_rows=num_rows,
+            token=oauth_token,
+        )
+    progress(0.5, desc="Generating sample dataset")
     dataframe = generate_dataset(
+        input_type=input_type,
+        dataframe=dataframe,
         system_prompt=system_prompt,
+        document_column=document_column,
         num_turns=num_turns,
         num_rows=10,
-        progress=progress,
         is_sample=True,
     )
     progress(1.0, desc="Sample dataset generated")
     return dataframe
 
 
-def _get_dataframe():
-    return gr.Dataframe(
-        headers=["prompt", "completion"],
-        wrap=True,
-        interactive=False,
-    )
-
-
 def generate_dataset(
+    input_type: str,
     system_prompt: str,
     num_turns: int = 1,
     num_rows: int = 10,
@@ -251,17 +292,35 @@ def push_dataset_to_hub(
 def push_dataset(
     org_name: str,
     repo_name: str,
+    private: bool,
+    original_repo_id: str,
+    file_paths: list[str],
+    input_type: str,
     system_prompt: str,
+    document_column: str,
     num_turns: int = 1,
     num_rows: int = 10,
-    private: bool = False,
     temperature: float = 0.9,
     pipeline_code: str = "",
     oauth_token: Union[gr.OAuthToken, None] = None,
     progress=gr.Progress(),
 ) -> pd.DataFrame:
+    if input_type == "prompt-input":
+        dataframe = _get_dataframe()
+    else:
+        dataframe, _ = load_dataset_file(
+            repo_id=original_repo_id,
+            file_paths=file_paths,
+            input_type=input_type,
+            num_rows=num_rows,
+            token=oauth_token,
+        )
+    progress(0.5, desc="Generating dataset")
     dataframe = generate_dataset(
+        input_type=input_type,
+        dataframe=dataframe,
         system_prompt=system_prompt,
+        document_column=document_column,
         num_turns=num_turns,
         num_rows=num_rows,
         temperature=temperature,
@@ -395,6 +454,28 @@ def push_dataset(
     return ""
 
 
+def show_system_prompt_visibility():
+    return {system_prompt: gr.Textbox(visible=True)}
+
+
+def hide_system_prompt_visibility():
+    return {system_prompt: gr.Textbox(visible=False)}
+
+
+def show_document_column_visibility():
+    return {document_column: gr.Dropdown(visible=True)}
+
+
+def hide_document_column_visibility():
+    return {
+        document_column: gr.Dropdown(
+            choices=["Load your data first in step 1."],
+            value="Load your data first in step 1.",
+            visible=False,
+        )
+    }
+
+
 def show_pipeline_code_visibility():
     return {pipeline_code_ui: gr.Accordion(visible=True)}
 
@@ -422,29 +503,77 @@ with gr.Blocks() as app:
                 )
             )
         else:
-            gr.Markdown(value="## 1. Describe the dataset you want")
-            with gr.Row():
+            gr.Markdown("## 1. Select your input")
+            with gr.Row(equal_height=False):
                 with gr.Column(scale=2):
-                    dataset_description = gr.Textbox(
-                        label="Dataset description",
-                        placeholder="Give a precise description of your desired dataset.",
+                    input_type = gr.Dropdown(
+                        label="Input type",
+                        choices=["dataset-input", "file-input", "prompt-input"],
+                        value="dataset-input",
+                        multiselect=False,
+                        visible=False,
                     )
-                    with gr.Row():
-                        clear_btn_part = gr.Button(
-                            "Clear",
-                            variant="secondary",
-                        )
-                        load_btn = gr.Button(
-                            "Create",
-                            variant="primary",
-                        )
-                with gr.Column(scale=3):
-                    examples = gr.Examples(
-                        examples=DEFAULT_DATASET_DESCRIPTIONS,
-                        inputs=[dataset_description],
-                        cache_examples=False,
-                        label="Examples",
-                    )
+                    with gr.Tab("Generate from prompt") as tab_prompt_input:
+                        with gr.Row(equal_height=False):
+                            with gr.Column(scale=2):
+                                dataset_description = gr.Textbox(
+                                    label="Dataset description",
+                                    placeholder="Give a precise description of your desired dataset.",
+                                )
+                                with gr.Row():
+                                    clear_prompt_btn_part = gr.Button(
+                                        "Clear", variant="secondary"
+                                    )
+                                    load_prompt_btn = gr.Button("Create", variant="primary")
+                            with gr.Column(scale=3):
+                                examples = gr.Examples(
+                                    examples=DEFAULT_DATASET_DESCRIPTIONS,
+                                    inputs=[dataset_description],
+                                    cache_examples=False,
+                                    label="Examples",
+                                )
+                    with gr.Tab("Load from Hub") as tab_dataset_input:
+                        with gr.Row(equal_height=False):
+                            with gr.Column(scale=2):
+                                search_in = HuggingfaceHubSearch(
+                                    label="Search",
+                                    placeholder="Search for a dataset",
+                                    search_type="dataset",
+                                    sumbit_on_select=True,
+                                )
+                                with gr.Row():
+                                    clear_dataset_btn_part = gr.Button(
+                                        "Clear", variant="secondary"
+                                    )
+                                    load_dataset_btn = gr.Button("Load", variant="primary")
+                            with gr.Column(scale=3):
+                                examples = gr.Examples(
+                                    examples=[
+                                        "charris/wikipedia_sample",
+                                        "plaguss/argilla_sdk_docs_raw_unstructured",
+                                        "BeIR/hotpotqa-generated-queries",
+                                    ],
+                                    label="Example datasets",
+                                    fn=lambda x: x,
+                                    inputs=[search_in],
+                                    run_on_click=True,
+                                )
+                                search_out = gr.HTML(label="Dataset preview", visible=False)
+                    with gr.Tab("Load your file") as tab_file_input:
+                        with gr.Row(equal_height=False):
+                            with gr.Column(scale=2):
+                                file_in = gr.File(
+                                    label="Upload your file. Supported formats: .md, .txt, .docx, .pdf",
+                                    file_count="multiple",
+                                    file_types=[".md", ".txt", ".docx", ".pdf"],
+                                )
+                                with gr.Row():
+                                    clear_file_btn_part = gr.Button(
+                                        "Clear", variant="secondary"
+                                    )
+                                    load_file_btn = gr.Button("Load", variant="primary")
+                            with gr.Column(scale=3):
+                                file_out = gr.HTML(label="Dataset preview", visible=False)
 
             gr.HTML(value="<hr>")
             gr.Markdown(value="## 2. Configure your dataset")
@@ -453,6 +582,15 @@ with gr.Blocks() as app:
                     system_prompt = gr.Textbox(
                         label="System prompt",
                         placeholder="You are a helpful assistant.",
+                    )
+                    document_column = gr.Dropdown(
+                        label="Document Column",
+                        info="Select the document column to generate the RAG dataset",
+                        choices=["Load your data first in step 1."],
+                        value="Load your data first in step 1.",
+                        interactive=False,
+                        multiselect=False,
+                        allow_custom_value=False,
                     )
                     num_turns = gr.Number(
                         value=1,
@@ -529,23 +667,85 @@ with gr.Blocks() as app:
                             label="Distilabel Pipeline Code",
                         )
 
-    load_btn.click(
+    tab_dataset_input.select(
+        fn=lambda: "dataset-input",
+        inputs=[],
+        outputs=[input_type],
+    ).then(fn=hide_system_prompt_visibility, inputs=[], outputs=[system_prompt]).then(
+        fn=show_document_column_visibility, inputs=[], outputs=[document_column]
+    )
+
+    tab_file_input.select(
+        fn=lambda: "file-input",
+        inputs=[],
+        outputs=[input_type],
+    ).then(fn=hide_system_prompt_visibility, inputs=[], outputs=[system_prompt]).then(
+        fn=show_document_column_visibility, inputs=[], outputs=[document_column]
+    )
+
+    tab_prompt_input.select(
+        fn=lambda: "prompt-input",
+        inputs=[],
+        outputs=[input_type],
+    ).then(fn=show_system_prompt_visibility, inputs=[], outputs=[system_prompt]).then(
+        fn=hide_document_column_visibility, inputs=[], outputs=[document_column]
+    )
+
+    search_in.submit(
+        fn=lambda df: pd.DataFrame(columns=df.columns),
+        inputs=[dataframe],
+        outputs=[dataframe],
+    )
+
+    load_dataset_btn.click(
+        fn=load_dataset_file,
+        inputs=[search_in, file_in, input_type],
+        outputs=[
+            dataframe,
+            document_column,
+        ],
+    )
+
+    load_file_btn.click(
+        fn=load_dataset_file,
+        inputs=[search_in, file_in, input_type],
+        outputs=[
+            dataframe,
+            document_column,
+        ],
+    )
+
+    load_prompt_btn.click(
         fn=generate_system_prompt,
         inputs=[dataset_description],
         outputs=[system_prompt],
         show_progress=True,
-    ).then(
+    ).success(
         fn=generate_sample_dataset,
-        inputs=[system_prompt, num_turns],
-        outputs=[dataframe],
-        show_progress=True,
+        inputs=[
+            search_in,
+            file_in,
+            input_type,
+            system_prompt,
+            document_column,
+            num_turns,
+            num_rows,
+        ],
+        outputs=dataframe,
     )
 
     btn_apply_to_sample_dataset.click(
         fn=generate_sample_dataset,
-        inputs=[system_prompt, num_turns],
-        outputs=[dataframe],
-        show_progress=True,
+        inputs=[
+            search_in,
+            file_in,
+            input_type,
+            system_prompt,
+            document_column,
+            num_turns,
+            num_rows,
+        ],
+        outputs=dataframe,
     )
 
     btn_push_to_hub.click(
@@ -566,16 +766,19 @@ with gr.Blocks() as app:
         fn=hide_pipeline_code_visibility,
         inputs=[],
         outputs=[pipeline_code_ui],
-        show_progress=True,
     ).success(
         fn=push_dataset,
         inputs=[
             org_name,
             repo_name,
+            private,
+            search_in,
+            file_in,
+            input_type,
             system_prompt,
+            document_column,
             num_turns,
             num_rows,
-            private,
             temperature,
             pipeline_code,
         ],
@@ -587,19 +790,32 @@ with gr.Blocks() as app:
         outputs=[success_message],
     ).success(
         fn=generate_pipeline_code,
-        inputs=[system_prompt, num_turns, num_rows],
+        inputs=[
+            search_in,
+            input_type,
+            system_prompt,
+            document_column,
+            num_turns,
+            num_rows,
+        ],
         outputs=[pipeline_code],
     ).success(
         fn=show_pipeline_code_visibility,
         inputs=[],
         outputs=[pipeline_code_ui],
     )
-    gr.on(
-        triggers=[clear_btn_part.click, clear_btn_full.click],
-        fn=lambda _: ("", "", 1, _get_dataframe()),
-        inputs=[dataframe],
-        outputs=[dataset_description, system_prompt, num_turns, dataframe],
+
+    clear_dataset_btn_part.click(fn=lambda : "", inputs=[], outputs=[search_in])
+    clear_file_btn_part.click(fn=lambda: None, inputs=[], outputs=[file_in])
+    clear_prompt_btn_part.click(
+        fn=lambda : "", inputs=[], outputs=[dataset_description]
     )
+    clear_btn_full.click(
+        fn=lambda df: ("", [], _get_dataframe()),
+        inputs=[dataframe],
+        outputs=[document_column, num_turns, dataframe],
+    )
+
+    app.load(fn=swap_visibility, outputs=main_ui)
     app.load(fn=get_org_dropdown, outputs=[org_name])
     app.load(fn=get_random_repo_name, outputs=[repo_name])
-    app.load(fn=swap_visibility, outputs=main_ui)
