@@ -23,6 +23,7 @@ from synthetic_dataset_generator.constants import (
     BASE_URL,
     DEFAULT_BATCH_SIZE,
     MODEL,
+    MODEL_COMPLETION,
     SFT_AVAILABLE,
 )
 from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
@@ -103,16 +104,18 @@ def generate_dataset(
     num_turns: int = 1,
     num_rows: int = 10,
     temperature: float = 0.9,
+    temperature_completion: Union[float, None] = None,
     is_sample: bool = False,
     progress=gr.Progress(),
 ) -> pd.DataFrame:
     num_rows = test_max_num_rows(num_rows)
     progress(0.0, desc="(1/2) Generating instructions")
-    magpie_generator = get_magpie_generator(
-        num_turns, temperature, is_sample
-    )
+    magpie_generator = get_magpie_generator(num_turns, temperature, is_sample)
     response_generator = get_response_generator(
-        system_prompt, num_turns, temperature, is_sample
+        system_prompt=system_prompt,
+        num_turns=num_turns,
+        temperature=temperature_completion or temperature,
+        is_sample=is_sample,
     )
     total_steps: int = num_rows * 2
     batch_size = DEFAULT_BATCH_SIZE
@@ -256,6 +259,7 @@ def push_dataset(
     num_rows: int = 10,
     private: bool = False,
     temperature: float = 0.9,
+    temperature_completion: Union[float, None] = None,
     pipeline_code: str = "",
     oauth_token: Union[gr.OAuthToken, None] = None,
     progress=gr.Progress(),
@@ -265,6 +269,7 @@ def push_dataset(
         num_turns=num_turns,
         num_rows=num_rows,
         temperature=temperature,
+        temperature_completion=temperature_completion
     )
     push_dataset_to_hub(
         dataframe=dataframe,
@@ -403,6 +408,11 @@ def hide_pipeline_code_visibility():
     return {pipeline_code_ui: gr.Accordion(visible=False)}
 
 
+def show_temperature_completion():
+    if MODEL != MODEL_COMPLETION:
+        return {temperature_completion: gr.Slider(value=0.9, visible=True)}
+
+
 ######################
 # Gradio UI
 ######################
@@ -494,10 +504,19 @@ with gr.Blocks() as app:
                     temperature = gr.Slider(
                         label="Temperature",
                         minimum=0.1,
-                        maximum=1,
+                        maximum=1.5,
                         value=0.9,
                         step=0.1,
                         interactive=True,
+                    )
+                    temperature_completion = gr.Slider(
+                        label="Temperature for completion",
+                        minimum=0.1,
+                        maximum=1.5,
+                        value=None,
+                        step=0.1,
+                        interactive=True,
+                        visible=False,
                     )
                     private = gr.Checkbox(
                         label="Private dataset",
@@ -577,6 +596,7 @@ with gr.Blocks() as app:
             num_rows,
             private,
             temperature,
+            temperature_completion,
             pipeline_code,
         ],
         outputs=[success_message],
@@ -600,6 +620,7 @@ with gr.Blocks() as app:
         inputs=[dataframe],
         outputs=[dataset_description, system_prompt, num_turns, dataframe],
     )
+    app.load(fn=swap_visibility, outputs=main_ui)
     app.load(fn=get_org_dropdown, outputs=[org_name])
     app.load(fn=get_random_repo_name, outputs=[repo_name])
-    app.load(fn=swap_visibility, outputs=main_ui)
+    app.load(fn=show_temperature_completion, outputs=[temperature_completion])
