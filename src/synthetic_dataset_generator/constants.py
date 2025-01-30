@@ -3,10 +3,6 @@ import warnings
 
 import argilla as rg
 
-# Tasks
-TEXTCAT_TASK = "text_classification"
-SFT_TASK = "supervised_fine_tuning"
-
 # Inference
 MAX_NUM_TOKENS = int(os.getenv("MAX_NUM_TOKENS", 2048))
 MAX_NUM_ROWS = int(os.getenv("MAX_NUM_ROWS", 1000))
@@ -20,27 +16,55 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
 HUGGINGFACE_BASE_URL = os.getenv("HUGGINGFACE_BASE_URL")
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL")
 
-# check if model is set correctly
-if HUGGINGFACE_BASE_URL and MODEL:
-    raise ValueError(
-        "`HUGGINGFACE_BASE_URL` and `MODEL` cannot be set at the same time. Use a model id for serverless inference and a base URL dedicated to Hugging Face Inference Endpoints."
-    )
-if not MODEL:
-    if OPENAI_BASE_URL or OLLAMA_BASE_URL or VLLM_BASE_URL:
-        raise ValueError("`MODEL` is not set. Please provide a model id for inference.")
+# Just used in case of selecting a different model for completions
+MODEL_COMPLETION = os.getenv("MODEL_COMPLETION", MODEL)
+TOKENIZER_ID_COMPLETION = os.getenv("TOKENIZER_ID_COMPLETION", TOKENIZER_ID)
+OPENAI_BASE_URL_COMPLETION = os.getenv("OPENAI_BASE_URL_COMPLETION", OPENAI_BASE_URL)
+OLLAMA_BASE_URL_COMPLETION = os.getenv("OLLAMA_BASE_URL_COMPLETION", OLLAMA_BASE_URL)
+HUGGINGFACE_BASE_URL_COMPLETION = os.getenv(
+    "HUGGINGFACE_BASE_URL_COMPLETION", HUGGINGFACE_BASE_URL
+)
+VLLM_BASE_URL_COMPLETION = os.getenv("VLLM_BASE_URL_COMPLETION", VLLM_BASE_URL)
 
-# Check if multiple base URLs are provided
-base_urls = [
-    url
-    for url in [OPENAI_BASE_URL, OLLAMA_BASE_URL, HUGGINGFACE_BASE_URL, VLLM_BASE_URL]
-    if url
-]
-if len(base_urls) > 1:
-    raise ValueError(
-        f"Multiple base URLs provided: {', '.join(base_urls)}. Only one base URL can be set at a time."
-    )
+base_urls = [OPENAI_BASE_URL, OLLAMA_BASE_URL, HUGGINGFACE_BASE_URL, VLLM_BASE_URL]
+base_urls_completion = [
+        OPENAI_BASE_URL_COMPLETION,
+        OLLAMA_BASE_URL_COMPLETION,
+        HUGGINGFACE_BASE_URL_COMPLETION,
+        VLLM_BASE_URL_COMPLETION,
+    ]
+
+
+# Validate the configuration of the model and base URLs.
+def validate_configuration(base_urls, model, env_context=""):
+    huggingface_url = base_urls[2]
+    if huggingface_url and model:
+        raise ValueError(
+            f"`HUGGINGFACE_BASE_URL{env_context}` and `MODEL{env_context}` cannot be set at the same time. "
+            "Use a model id for serverless inference and a base URL dedicated to Hugging Face Inference Endpoints."
+        )
+
+    if not model and any(base_urls):
+        raise ValueError(
+            f"`MODEL{env_context}` is not set. Please provide a model id for inference."
+        )
+
+    active_urls = [url for url in base_urls if url]
+    if len(active_urls) > 1:
+        raise ValueError(
+            f"Multiple base URLs are provided: {', '.join(active_urls)}. "
+            "Only one base URL can be set at a time."
+        )
+validate_configuration(base_urls, MODEL)
+validate_configuration(base_urls_completion, MODEL_COMPLETION, "_COMPLETION")
+
 BASE_URL = OPENAI_BASE_URL or OLLAMA_BASE_URL or HUGGINGFACE_BASE_URL or VLLM_BASE_URL
-
+BASE_URL_COMPLETION = (
+    OPENAI_BASE_URL_COMPLETION
+    or OLLAMA_BASE_URL_COMPLETION
+    or HUGGINGFACE_BASE_URL_COMPLETION
+    or VLLM_BASE_URL_COMPLETION
+)
 
 # API Keys
 HF_TOKEN = os.getenv("HF_TOKEN")
