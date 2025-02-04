@@ -1,37 +1,30 @@
 import os
 import random
 import uuid
-from tqdm import tqdm
 from typing import Union
 
 import argilla as rg
 import gradio as gr
 import nltk
 import pandas as pd
-from datasets import (
-    Dataset,
-    get_dataset_config_names,
-    get_dataset_split_names,
-    load_dataset,
-)
+from datasets import Dataset
 from distilabel.distiset import Distiset
 from gradio.oauth import OAuthToken
 from gradio_huggingfacehub_search import HuggingfaceHubSearch
 from huggingface_hub import HfApi
-from unstructured.chunking.title import chunk_by_title
-from unstructured.partition.auto import partition
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
-    get_iframe,
     hide_success_message,
+    load_dataset_from_hub,
+    preprocess_input_data,
     push_pipeline_code_to_hub,
     show_success_message,
     test_max_num_rows,
     validate_argilla_user_workspace_dataset,
     validate_push_to_hub,
 )
-from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE
+from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE, MODEL, MODEL_COMPLETION
 from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
 from synthetic_dataset_generator.pipelines.embeddings import (
     get_embeddings,
@@ -39,11 +32,11 @@ from synthetic_dataset_generator.pipelines.embeddings import (
 )
 from synthetic_dataset_generator.pipelines.rag import (
     DEFAULT_DATASET_DESCRIPTIONS,
+    generate_pipeline_code,
     get_chunks_generator,
     get_prompt_generator,
-    generate_pipeline_code,
-    get_sentence_pair_generator,
     get_response_generator,
+    get_sentence_pair_generator,
 )
 from synthetic_dataset_generator.utils import (
     column_to_list,
@@ -57,81 +50,6 @@ os.makedirs("./nltk_data", exist_ok=True)
 nltk.data.path.append("./nltk_data")
 nltk.download("punkt_tab", download_dir="./nltk_data")
 nltk.download("averaged_perceptron_tagger_eng", download_dir="./nltk_data")
-
-def _get_valid_columns(dataframe: pd.DataFrame):
-    doc_valid_columns = []
-
-    for col in dataframe.columns:
-        sample_val = dataframe[col].iloc[0]
-        if isinstance(sample_val, str):
-            doc_valid_columns.append(col)
-
-    return doc_valid_columns
-
-
-def _load_dataset_from_hub(
-    repo_id: str,
-    num_rows: int = 10,
-    token: Union[OAuthToken, None] = None,
-    progress=gr.Progress(track_tqdm=True),
-):
-    if not repo_id:
-        raise gr.Error("Please provide a Hub repo ID")
-    subsets = get_dataset_config_names(repo_id, token=token)
-    splits = get_dataset_split_names(repo_id, subsets[0], token=token)
-    ds = load_dataset(repo_id, subsets[0], split=splits[0], token=token, streaming=True)
-    rows = []
-    for idx, row in enumerate(tqdm(ds, desc="Loading the dataset", total=num_rows)):
-        rows.append(row)
-        if idx == num_rows:
-            break
-    ds = Dataset.from_list(rows)
-    dataframe = ds.to_pandas()
-    doc_valid_columns = _get_valid_columns(dataframe)
-    col_doc = doc_valid_columns[0] if doc_valid_columns else ""
-    return (
-        dataframe,
-        gr.Dropdown(
-            choices=doc_valid_columns,
-            label="Documents column",
-            value=col_doc,
-            interactive=(False if col_doc == "" else True),
-            multiselect=False,
-        ),
-    )
-
-
-def _preprocess_input_data(file_paths: list[str], num_rows: int, progress=gr.Progress(track_tqdm=True)):
-    if not file_paths:
-        raise gr.Error("Please provide an input file")
-
-    data = {}
-    total_chunks = 0
-
-    for file_path in tqdm(file_paths, desc="Processing files", total=len(file_paths)):
-        partitioned_file = partition(filename=file_path)
-        chunks = [str(chunk) for chunk in chunk_by_title(partitioned_file)]
-        data[file_path] = chunks
-        total_chunks += len(chunks)
-        if total_chunks >= num_rows:
-            break
-
-    dataframe = pd.DataFrame.from_records(
-        [(k, v) for k, values in data.items() for v in values],
-        columns=["filename", "chunks"],
-    )
-    col_doc = "chunks"
-
-    return (
-        dataframe,
-        gr.Dropdown(
-            choices=["chunks"],
-            label="Documents column",
-            value=col_doc,
-            interactive=(False if col_doc == "" else True),
-            multiselect=False,
-        ),
-    )
 
 
 def generate_system_prompt(dataset_description: str, progress=gr.Progress()):
@@ -161,9 +79,48 @@ def load_dataset_file(
 ):
     progress(0.1, desc="Loading the source data")
     if input_type == "dataset-input":
-        return _load_dataset_from_hub(repo_id, num_rows, token)
+        return load_dataset_from_hub(repo_id=repo_id, num_rows=num_rows, token=token)
     else:
-        return _preprocess_input_data(file_paths, num_rows)
+        return preprocess_input_data(file_paths=file_paths, num_rows=num_rows)
+
+
+def generate_sample_dataset(
+    repo_id: str,
+    file_paths: list[str],
+    input_type: str,
+    system_prompt: str,
+    document_column: str,
+    retrieval_reranking: list[str],
+    num_rows: str,
+    oauth_token: Union[OAuthToken, None],
+    progress=gr.Progress(),
+):
+    retrieval = "Retrieval" in retrieval_reranking
+    reranking = "Reranking" in retrieval_reranking
+
+    if input_type == "prompt-input":
+        dataframe = pd.DataFrame(columns=["context", "question", "response"])
+    else:
+        dataframe, _ = load_dataset_file(
+            repo_id=repo_id,
+            file_paths=file_paths,
+            input_type=input_type,
+            num_rows=num_rows,
+            token=oauth_token,
+        )
+    progress(0.5, desc="Generating dataset")
+    dataframe = generate_dataset(
+        input_type=input_type,
+        dataframe=dataframe,
+        system_prompt=system_prompt,
+        document_column=document_column,
+        retrieval=retrieval,
+        reranking=reranking,
+        num_rows=10,
+        is_sample=True,
+    )
+    progress(1.0, desc="Sample dataset generated")
+    return dataframe
 
 
 def generate_dataset(
@@ -175,6 +132,7 @@ def generate_dataset(
     reranking: bool = False,
     num_rows: int = 10,
     temperature: float = 0.7,
+    temperature_completion: Union[float, None] = None,
     is_sample: bool = False,
     progress=gr.Progress(),
 ):
@@ -198,7 +156,7 @@ def generate_dataset(
         is_sample=is_sample,
     )
     response_generator = get_response_generator(
-        temperature=temperature, is_sample=is_sample
+        temperature = temperature_completion or temperature , is_sample=is_sample
     )
     if reranking:
         reranking_generator = get_sentence_pair_generator(
@@ -323,44 +281,6 @@ def generate_dataset(
     return dataframe
 
 
-def generate_sample_dataset(
-    repo_id: str,
-    file_paths: list[str],
-    input_type: str,
-    system_prompt: str,
-    document_column: str,
-    retrieval_reranking: list[str],
-    num_rows: str,
-    oauth_token: Union[OAuthToken, None],
-    progress=gr.Progress(),
-):
-    retrieval = "Retrieval" in retrieval_reranking
-    reranking = "Reranking" in retrieval_reranking
-
-    if input_type == "prompt-input":
-        dataframe = pd.DataFrame(columns=["context", "question", "response"])
-    else:
-        dataframe, _ = load_dataset_file(
-            repo_id=repo_id,
-            file_paths=file_paths,
-            input_type=input_type,
-            num_rows=num_rows,
-            token=oauth_token,
-        )
-    progress(0.5, desc="Generating dataset")
-    dataframe = generate_dataset(
-        input_type=input_type,
-        dataframe=dataframe,
-        system_prompt=system_prompt,
-        document_column=document_column,
-        retrieval=retrieval,
-        reranking=reranking,
-        num_rows=10,
-        is_sample=True,
-    )
-    return dataframe
-
-
 def push_dataset_to_hub(
     dataframe: pd.DataFrame,
     org_name: str,
@@ -401,6 +321,7 @@ def push_dataset(
     retrieval_reranking: list[str],
     num_rows: int,
     temperature: float,
+    temperature_completion: float,
     pipeline_code: str,
     oauth_token: Union[gr.OAuthToken, None] = None,
     progress=gr.Progress(),
@@ -428,15 +349,14 @@ def push_dataset(
         reranking=reranking,
         num_rows=num_rows,
         temperature=temperature,
+        temperature_completion=temperature_completion,
         is_sample=True,
     )
     push_dataset_to_hub(
         dataframe, org_name, repo_name, oauth_token, private, pipeline_code
     )
     dataframe = dataframe[
-        dataframe.applymap(
-            lambda x: str(x).strip() if pd.notna(x) else x
-        ).apply(
+        dataframe.applymap(lambda x: str(x).strip() if pd.notna(x) else x).apply(
             lambda row: row.notna().all() and (row != "").all(), axis=1
         )
     ]
@@ -596,6 +516,11 @@ def hide_pipeline_code_visibility():
     return {pipeline_code_ui: gr.Accordion(visible=False)}
 
 
+def show_temperature_completion():
+    if MODEL != MODEL_COMPLETION:
+        return {temperature_completion: gr.Slider(value=0.9, visible=True)}
+
+
 ######################
 # Gradio UI
 ######################
@@ -677,7 +602,7 @@ with gr.Blocks() as app:
 
         gr.HTML(value="<hr>")
         gr.Markdown(value="## 2. Configure your task")
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=False):
             with gr.Column(scale=2):
                 system_prompt = gr.Textbox(
                     label="System prompt",
@@ -701,9 +626,7 @@ with gr.Blocks() as app:
                 )
                 with gr.Row():
                     clear_btn_full = gr.Button("Clear", variant="secondary")
-                    btn_apply_to_sample_dataset = gr.Button(
-                        "Save", variant="primary"
-                    )
+                    btn_apply_to_sample_dataset = gr.Button("Save", variant="primary")
             with gr.Column(scale=3):
                 dataframe = gr.Dataframe(
                     headers=["context", "question", "response"],
@@ -731,10 +654,19 @@ with gr.Blocks() as app:
                 temperature = gr.Slider(
                     label="Temperature",
                     minimum=0.1,
-                    maximum=1,
+                    maximum=1.5,
                     value=0.7,
                     step=0.1,
                     interactive=True,
+                )
+                temperature_completion = gr.Slider(
+                    label="Temperature for completion",
+                    minimum=0.1,
+                    maximum=1.5,
+                    value=None,
+                    step=0.1,
+                    interactive=True,
+                    visible=False,
                 )
                 private = gr.Checkbox(
                     label="Private dataset",
@@ -791,35 +723,23 @@ with gr.Blocks() as app:
         fn=hide_document_column_visibility, inputs=[], outputs=[document_column]
     )
 
-    search_in.submit(fn=get_iframe, inputs=search_in, outputs=search_out).then(
+    search_in.submit(
         fn=lambda df: pd.DataFrame(columns=df.columns),
         inputs=[dataframe],
         outputs=[dataframe],
     )
 
-    load_dataset_btn.click(
+    gr.on(
+        triggers=[load_dataset_btn.click, load_file_btn.click],
         fn=load_dataset_file,
         inputs=[search_in, file_in, input_type],
-        outputs=[
-            dataframe,
-            document_column,
-        ],
-    )
-
-    load_file_btn.click(
-        fn=load_dataset_file,
-        inputs=[search_in, file_in, input_type],
-        outputs=[
-            dataframe,
-            document_column,
-        ],
+        outputs=[dataframe, document_column],
     )
 
     load_prompt_btn.click(
         fn=generate_system_prompt,
         inputs=[dataset_description],
         outputs=[system_prompt],
-        show_progress=True,
     ).success(
         fn=generate_sample_dataset,
         inputs=[
@@ -852,16 +772,13 @@ with gr.Blocks() as app:
         fn=validate_argilla_user_workspace_dataset,
         inputs=[repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).then(
         fn=validate_push_to_hub,
         inputs=[org_name, repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_success_message,
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_pipeline_code_visibility,
         inputs=[],
@@ -880,10 +797,10 @@ with gr.Blocks() as app:
             retrieval_reranking,
             num_rows,
             temperature,
+            temperature_completion,
             pipeline_code,
         ],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=show_success_message,
         inputs=[org_name, repo_name],
@@ -905,11 +822,9 @@ with gr.Blocks() as app:
         outputs=[pipeline_code_ui],
     )
 
-    clear_dataset_btn_part.click(fn=lambda : "", inputs=[], outputs=[search_in])
+    clear_dataset_btn_part.click(fn=lambda: "", inputs=[], outputs=[search_in])
     clear_file_btn_part.click(fn=lambda: None, inputs=[], outputs=[file_in])
-    clear_prompt_btn_part.click(
-        fn=lambda : "", inputs=[], outputs=[dataset_description]
-    )
+    clear_prompt_btn_part.click(fn=lambda: "", inputs=[], outputs=[dataset_description])
     clear_btn_full.click(
         fn=lambda df: ("", [], pd.DataFrame(columns=df.columns)),
         inputs=[dataframe],
@@ -919,3 +834,4 @@ with gr.Blocks() as app:
     app.load(fn=swap_visibility, outputs=main_ui)
     app.load(fn=get_org_dropdown, outputs=[org_name])
     app.load(fn=get_random_repo_name, outputs=[repo_name])
+    app.load(fn=show_temperature_completion, outputs=[temperature_completion])

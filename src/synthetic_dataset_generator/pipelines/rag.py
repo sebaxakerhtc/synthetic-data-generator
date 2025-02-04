@@ -1,7 +1,3 @@
-import os
-
-from typing import List
-
 from datasets import get_dataset_config_names, get_dataset_split_names
 from distilabel.steps.tasks import (
     GenerateSentencePair,
@@ -125,7 +121,7 @@ def get_response_generator(temperature: float, is_sample: bool):
         "max_new_tokens": MAX_NUM_TOKENS if is_sample else 256,
     }
     text_generator = TextGeneration(
-        llm=_get_llm(generation_kwargs=generation_kwargs),
+        llm=_get_llm(is_completion=True, generation_kwargs=generation_kwargs),
         system_prompt=SYSTEM_PROMPT_RAG,
         template=RAG_TEMPLATE,
         columns=["context", "question"],
@@ -292,10 +288,7 @@ with Pipeline(name="rag") as pipeline:
 
     pipeline += """
     if __name__ == "__main__":
-        distiset = pipeline.run(use_cache=False)
-        print(distiset)
-        if distiset:
-            print(distiset["default"]["train"][0])
+        distiset = pipeline.run()
     """
 
     return base_code + pipeline
