@@ -532,7 +532,7 @@ with gr.Blocks() as app:
                 temperature = gr.Slider(
                     label="Temperature",
                     minimum=0.1,
-                    maximum=1,
+                    maximum=1.5,
                     value=0.8,
                     step=0.1,
                     interactive=True,

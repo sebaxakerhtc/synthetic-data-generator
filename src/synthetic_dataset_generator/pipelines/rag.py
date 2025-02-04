@@ -121,7 +121,7 @@ def get_response_generator(temperature: float, is_sample: bool):
         "max_new_tokens": MAX_NUM_TOKENS if is_sample else 256,
     }
     text_generator = TextGeneration(
-        llm=_get_llm(generation_kwargs=generation_kwargs),
+        llm=_get_llm(is_completion=True, generation_kwargs=generation_kwargs),
         system_prompt=SYSTEM_PROMPT_RAG,
         template=RAG_TEMPLATE,
         columns=["context", "question"],
