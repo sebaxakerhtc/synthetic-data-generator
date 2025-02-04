@@ -12,6 +12,9 @@ from distilabel.distiset import Distiset
 from gradio.oauth import OAuthToken
 from gradio_huggingfacehub_search import HuggingfaceHubSearch
 from huggingface_hub import HfApi
+import os
+save_dir = "outputs"
+os.makedirs(save_dir, exist_ok=True)
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
@@ -264,6 +267,25 @@ def generate_dataset_from_prompt(
     progress(1.0, desc="Dataset generation completed")
     return dataframe
 
+def save_local(
+    dataset_filename: str,
+    system_prompt: str,
+    num_turns: int,
+    num_rows: int,
+    temperature: float,
+):
+    dataframe = generate_dataset(
+        system_prompt=system_prompt,
+        num_turns=num_turns,
+        num_rows=num_rows,
+        temperature=temperature,
+    )
+    dataset = Dataset.from_pandas(dataframe)
+    output_csv = os.path.join(save_dir, dataset_filename + ".csv")
+    output_json = os.path.join(save_dir, dataset_filename + ".json")
+    dataset.to_csv(output_csv, index=False)
+    dataset.to_json(output_json, index=False)
+    return output_csv, output_json
 
 def generate_dataset_from_seed(
     dataframe: pd.DataFrame,
@@ -849,9 +871,6 @@ with gr.Blocks() as app:
                         interactive=True,
                         scale=1,
                     )
-                    btn_push_to_hub = gr.Button(
-                        "Push to Hub", variant="primary", scale=2
-                    )
                 with gr.Column(scale=3):
                     success_message = gr.Markdown(
                         visible=True,
@@ -875,6 +894,24 @@ with gr.Blocks() as app:
                             language="python",
                             label="Distilabel Pipeline Code",
                         )
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=2):
+                    btn_push_to_hub = gr.Button(
+                        "Push to Hub", variant="primary", scale=2
+                    )
+                    btn_save_local = gr.Button(
+                        "Save locally", variant="primary", scale=2
+                    )
+                with gr.Column(scale=3):
+                    with gr.Row():
+                        dataset_filename = gr.Textbox(
+                            label="Dataset name",
+                            placeholder="dataset_name",
+                            value=f"my-distiset-{str(uuid.uuid4())[:8]}",
+                            interactive=True,
+                        )
+                        csv_file = gr.File(label="CSV", elem_classes="datasets")
+                        json_file = gr.File(label="JSON", elem_classes="datasets")
 
     tab_prompt_input.select(
         fn=lambda: "prompt-input",
@@ -997,6 +1034,12 @@ with gr.Blocks() as app:
         fn=show_pipeline_code_visibility,
         inputs=[],
         outputs=[pipeline_code_ui],
+    )
+    
+    btn_save_local.click(
+        save_local,
+        inputs=[dataset_filename, system_prompt, num_turns, num_rows, temperature],
+        outputs=[csv_file, json_file]
     )
 
     clear_dataset_btn_part.click(fn=lambda: "", inputs=[], outputs=[search_in])
