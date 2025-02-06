@@ -268,6 +268,8 @@ def generate_dataset_from_prompt(
     return dataframe
 
 def save_local(
+    repo_id: str,
+    file_paths: list[str],
     input_type: str,
     system_prompt: str,
     document_column: str,
@@ -281,11 +283,10 @@ def save_local(
         dataframe = _get_dataframe()
     else:
         dataframe, _ = load_dataset_file(
-            repo_id=original_repo_id,
+            repo_id=repo_id,
             file_paths=file_paths,
             input_type=input_type,
             num_rows=num_rows,
-            token=oauth_token,
         )
     dataframe = generate_dataset(
         input_type=input_type,
@@ -1056,6 +1057,8 @@ with gr.Blocks() as app:
     btn_save_local.click(
         save_local,
         inputs=[
+            search_in,
+            file_in,
             input_type,
             system_prompt,
             document_column,
