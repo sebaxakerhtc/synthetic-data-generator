@@ -2,6 +2,7 @@ import ast
 import json
 import random
 import uuid
+import os
 from typing import Dict, List, Union
 
 import argilla as rg
@@ -12,9 +13,6 @@ from distilabel.distiset import Distiset
 from gradio.oauth import OAuthToken
 from gradio_huggingfacehub_search import HuggingfaceHubSearch
 from huggingface_hub import HfApi
-import os
-save_dir = "outputs"
-os.makedirs(save_dir, exist_ok=True)
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
@@ -26,6 +24,7 @@ from synthetic_dataset_generator.apps.base import (
     test_max_num_rows,
     validate_argilla_user_workspace_dataset,
     validate_push_to_hub,
+    save_dir,
 )
 from synthetic_dataset_generator.constants import (
     BASE_URL,
@@ -266,44 +265,6 @@ def generate_dataset_from_prompt(
     dataframe = pd.DataFrame(outputs)
     progress(1.0, desc="Dataset generation completed")
     return dataframe
-
-def save_local(
-    repo_id: str,
-    file_paths: list[str],
-    input_type: str,
-    system_prompt: str,
-    document_column: str,
-    num_turns: int,
-    num_rows: int,
-    temperature: float,
-    dataset_filename: str,
-    temperature_completion: Union[float, None] = None,
-) -> pd.DataFrame:
-    if input_type == "prompt-input":
-        dataframe = _get_dataframe()
-    else:
-        dataframe, _ = load_dataset_file(
-            repo_id=repo_id,
-            file_paths=file_paths,
-            input_type=input_type,
-            num_rows=num_rows,
-        )
-    dataframe = generate_dataset(
-        input_type=input_type,
-        dataframe=dataframe,
-        system_prompt=system_prompt,
-        document_column=document_column,
-        num_turns=num_turns,
-        num_rows=num_rows,
-        temperature=temperature,
-        temperature_completion=temperature_completion
-    )
-    local_dataset = Dataset.from_pandas(dataframe)
-    output_csv = os.path.join(save_dir, dataset_filename + ".csv")
-    output_json = os.path.join(save_dir, dataset_filename + ".json")
-    local_dataset.to_csv(output_csv, index=False)
-    local_dataset.to_json(output_json, index=False)
-    return output_csv, output_json
 
 def generate_dataset_from_seed(
     dataframe: pd.DataFrame,
@@ -546,7 +507,7 @@ def push_dataset(
         num_turns=num_turns,
         num_rows=num_rows,
         temperature=temperature,
-        temperature_completion=temperature_completion
+        temperature_completion=temperature_completion,
     )
     push_dataset_to_hub(
         dataframe=dataframe,
@@ -675,6 +636,45 @@ def push_dataset(
     except Exception as e:
         raise gr.Error(f"Error pushing dataset to Argilla: {e}")
     return ""
+
+
+def save_local(
+    repo_id: str,
+    file_paths: list[str],
+    input_type: str,
+    system_prompt: str,
+    document_column: str,
+    num_turns: int,
+    num_rows: int,
+    temperature: float,
+    dataset_filename: str,
+    temperature_completion: Union[float, None] = None,
+) -> pd.DataFrame:
+    if input_type == "prompt-input":
+        dataframe = _get_dataframe()
+    else:
+        dataframe, _ = load_dataset_file(
+            repo_id=repo_id,
+            file_paths=file_paths,
+            input_type=input_type,
+            num_rows=num_rows,
+        )
+    dataframe = generate_dataset(
+        input_type=input_type,
+        dataframe=dataframe,
+        system_prompt=system_prompt,
+        document_column=document_column,
+        num_turns=num_turns,
+        num_rows=num_rows,
+        temperature=temperature,
+        temperature_completion=temperature_completion
+    )
+    local_dataset = Dataset.from_pandas(dataframe)
+    output_csv = os.path.join(save_dir, dataset_filename + ".csv")
+    output_json = os.path.join(save_dir, dataset_filename + ".json")
+    local_dataset.to_csv(output_csv, index=False)
+    local_dataset.to_json(output_json, index=False)
+    return output_csv, output_json
 
 
 def show_system_prompt_visibility():
@@ -925,7 +925,7 @@ with gr.Blocks() as app:
                         dataset_filename = gr.Textbox(
                             label="Dataset name",
                             placeholder="dataset_name",
-                            value=f"my-distiset-{str(uuid.uuid4())[:8]}",
+                            value="my-dataset",
                             interactive=True,
                         )
                         csv_file = gr.File(label="CSV", elem_classes="datasets")

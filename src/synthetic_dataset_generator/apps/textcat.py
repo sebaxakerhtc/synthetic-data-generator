@@ -1,3 +1,4 @@
+import os
 import json
 import random
 import uuid
@@ -18,6 +19,7 @@ from synthetic_dataset_generator.apps.base import (
     test_max_num_rows,
     validate_argilla_user_workspace_dataset,
     validate_push_to_hub,
+    save_dir,
 )
 from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE
 from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
@@ -406,6 +408,33 @@ def push_dataset(
     return ""
 
 
+def save_local(
+    system_prompt: str,
+    difficulty: str,
+    clarity: str,
+    labels: List[str],
+    multi_label: bool,
+    num_rows: int,
+    temperature: float,
+    dataset_filename: str,
+) -> pd.DataFrame:
+    dataframe = generate_dataset(
+        system_prompt=system_prompt,
+        difficulty=difficulty,
+        clarity=clarity,
+        multi_label=multi_label,
+        labels=labels,
+        num_rows=num_rows,
+        temperature=temperature,
+    )
+    local_dataset = Dataset.from_pandas(dataframe)
+    output_csv = os.path.join(save_dir, dataset_filename + ".csv")
+    output_json = os.path.join(save_dir, dataset_filename + ".json")
+    local_dataset.to_csv(output_csv, index=False)
+    local_dataset.to_json(output_json, index=False)
+    return output_csv, output_json
+
+
 def validate_input_labels(labels: List[str]) -> List[str]:
     if (
         not labels
@@ -543,7 +572,6 @@ with gr.Blocks() as app:
                     interactive=True,
                     scale=1,
                 )
-                btn_push_to_hub = gr.Button("Push to Hub", variant="primary", scale=2)
             with gr.Column(scale=3):
                 success_message = gr.Markdown(
                     visible=True,
@@ -567,6 +595,24 @@ with gr.Blocks() as app:
                         language="python",
                         label="Distilabel Pipeline Code",
                     )
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=2):
+                btn_push_to_hub = gr.Button(
+                    "Push to Hub", variant="primary", scale=2
+                )
+                btn_save_local = gr.Button(
+                    "Save locally", variant="primary", scale=2
+                )
+            with gr.Column(scale=3):
+                with gr.Row():
+                    dataset_filename = gr.Textbox(
+                        label="Dataset name",
+                        placeholder="dataset_name",
+                        value="my-dataset",
+                        interactive=True,
+                    )
+                    csv_file = gr.File(label="CSV", elem_classes="datasets")
+                    json_file = gr.File(label="JSON", elem_classes="datasets")
 
     load_btn.click(
         fn=generate_system_prompt,
@@ -642,6 +688,21 @@ with gr.Blocks() as app:
         fn=show_pipeline_code_visibility,
         inputs=[],
         outputs=[pipeline_code_ui],
+    )
+    
+    btn_save_local.click(
+        save_local,
+        inputs=[
+            system_prompt,
+            difficulty,
+            clarity,
+            labels,
+            multi_label,
+            num_rows,
+            temperature,
+            dataset_filename,
+        ],
+        outputs=[csv_file, json_file]
     )
 
     gr.on(
