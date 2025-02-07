@@ -87,10 +87,17 @@ def _get_llm(
 ):
     model = MODEL_COMPLETION if is_completion else MODEL
     tokenizer_id = TOKENIZER_ID_COMPLETION if is_completion else TOKENIZER_ID or model
-    if OPENAI_BASE_URL:
+    base_urls = {
+        "openai": OPENAI_BASE_URL_COMPLETION if is_completion else OPENAI_BASE_URL,
+        "ollama": OLLAMA_BASE_URL_COMPLETION if is_completion else OLLAMA_BASE_URL,
+        "huggingface": HUGGINGFACE_BASE_URL_COMPLETION if is_completion else HUGGINGFACE_BASE_URL,
+        "vllm": VLLM_BASE_URL_COMPLETION if is_completion else VLLM_BASE_URL,
+    }
+
+    if base_urls["openai"]:
         llm = OpenAILLM(
             model=model,
-            base_url=OPENAI_BASE_URL_COMPLETION if is_completion else OPENAI_BASE_URL,
+            base_url=base_urls["openai"],
             api_key=_get_next_api_key(),
             structured_output=structured_output,
             **kwargs,
@@ -103,7 +110,7 @@ def _get_llm(
                 del kwargs["generation_kwargs"]["stop_sequences"]
             if "do_sample" in kwargs["generation_kwargs"]:
                 del kwargs["generation_kwargs"]["do_sample"]
-    elif OLLAMA_BASE_URL:
+    elif base_urls["ollama"]:
         if "generation_kwargs" in kwargs:
             if "max_new_tokens" in kwargs["generation_kwargs"]:
                 kwargs["generation_kwargs"]["num_predict"] = kwargs[
@@ -123,32 +130,28 @@ def _get_llm(
             kwargs["generation_kwargs"]["options"] = options
         llm = OllamaLLM(
             model=model,
-            host=OLLAMA_BASE_URL_COMPLETION if is_completion else OLLAMA_BASE_URL,
+            host=base_urls["ollama"],
             tokenizer_id=tokenizer_id,
             use_magpie_template=use_magpie_template,
             structured_output=structured_output,
             **kwargs,
         )
-    elif HUGGINGFACE_BASE_URL:
+    elif base_urls["huggingface"]:
         kwargs["generation_kwargs"]["do_sample"] = True
         llm = InferenceEndpointsLLM(
             api_key=_get_next_api_key(),
-            base_url=(
-                HUGGINGFACE_BASE_URL_COMPLETION
-                if is_completion
-                else HUGGINGFACE_BASE_URL
-            ),
+            base_url=base_urls["huggingface"],
             tokenizer_id=tokenizer_id,
             use_magpie_template=use_magpie_template,
             structured_output=structured_output,
             **kwargs,
         )
-    elif VLLM_BASE_URL:
+    elif base_urls["vllm"]:
         if "generation_kwargs" in kwargs:
             if "do_sample" in kwargs["generation_kwargs"]:
                 del kwargs["generation_kwargs"]["do_sample"]
         llm = ClientvLLM(
-            base_url=VLLM_BASE_URL_COMPLETION if is_completion else VLLM_BASE_URL,
+            base_url=base_urls["vllm"],
             model=model,
             tokenizer=tokenizer_id,
             api_key=_get_next_api_key(),
