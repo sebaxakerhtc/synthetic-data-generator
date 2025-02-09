@@ -197,7 +197,7 @@ def generate_dataset(
                     set(
                         label.lower().strip()
                         for label in x
-                        if label.lower().strip() in labels
+                        if isinstance(label, str) and label.lower().strip() in labels
                     )
                 )
             else:
