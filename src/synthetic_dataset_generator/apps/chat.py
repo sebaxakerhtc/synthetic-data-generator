@@ -309,7 +309,7 @@ def generate_dataset_from_seed(
         progress(
             step_progress * n_processed / num_rows,
             total=total_steps,
-            desc="Generating questions",
+            desc="Generating instructions",
         )
         remaining_rows = num_rows - n_processed
         batch_size = min(batch_size, remaining_rows)
@@ -781,7 +781,7 @@ with gr.Blocks() as app:
                     )
                     document_column = gr.Dropdown(
                         label="Document Column",
-                        info="Select the document column to generate the RAG dataset",
+                        info="Select the document column to generate the chat data",
                         choices=["Load your data first in step 1."],
                         value="Load your data first in step 1.",
                         interactive=False,

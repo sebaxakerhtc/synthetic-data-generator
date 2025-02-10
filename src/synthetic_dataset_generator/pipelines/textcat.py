@@ -109,7 +109,7 @@ def get_labeller_generator(system_prompt: str, labels: List[str], multi_label: b
         "temperature": 0.01,
         "max_new_tokens": MAX_NUM_TOKENS,
     }
-    llm = _get_llm(is_completion=True, generation_kwargs=generation_kwargs)
+    llm = _get_llm(generation_kwargs=generation_kwargs)
     labeller_generator = TextClassification(
         llm=llm,
         context=system_prompt,
