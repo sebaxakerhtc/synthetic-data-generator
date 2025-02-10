@@ -24,7 +24,7 @@ from synthetic_dataset_generator.apps.base import (
     validate_argilla_user_workspace_dataset,
     validate_push_to_hub,
 )
-from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE, MODEL, MODEL_COMPLETION
+from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE, MODEL, MODEL_COMPLETION, SAVE_LOCAL_DIR
 from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
 from synthetic_dataset_generator.pipelines.embeddings import (
     get_embeddings,
@@ -486,6 +486,49 @@ def push_dataset(
     return ""
 
 
+def save_local(
+    repo_id: str,
+    file_paths: list[str],
+    input_type: str,
+    system_prompt: str,
+    document_column: str,
+    retrieval_reranking: list[str],
+    num_rows: int,
+    temperature: float,
+    repo_name: str,
+    temperature_completion: float,
+) -> pd.DataFrame:
+    retrieval = "Retrieval" in retrieval_reranking
+    reranking = "Reranking" in retrieval_reranking
+
+    if input_type == "prompt-input":
+        dataframe = pd.DataFrame(columns=["context", "question", "response"])
+    else:
+        dataframe, _ = load_dataset_file(
+            repo_id=repo_id,
+            file_paths=file_paths,
+            input_type=input_type,
+            num_rows=num_rows,
+        )
+    dataframe = generate_dataset(
+        input_type=input_type,
+        dataframe=dataframe,
+        system_prompt=system_prompt,
+        document_column=document_column,
+        retrieval=retrieval,
+        reranking=reranking,
+        num_rows=num_rows,
+        temperature=temperature,
+        temperature_completion=temperature_completion,
+    )
+    local_dataset = Dataset.from_pandas(dataframe)
+    output_csv = os.path.join(SAVE_LOCAL_DIR, repo_name + ".csv")
+    output_json = os.path.join(SAVE_LOCAL_DIR, repo_name + ".json")
+    local_dataset.to_csv(output_csv, index=False)
+    local_dataset.to_json(output_json, index=False)
+    return output_csv, output_json
+
+
 def show_system_prompt_visibility():
     return {system_prompt: gr.Textbox(visible=True)}
 
@@ -519,6 +562,14 @@ def hide_pipeline_code_visibility():
 def show_temperature_completion():
     if MODEL != MODEL_COMPLETION:
         return {temperature_completion: gr.Slider(value=0.9, visible=True)}
+
+
+def show_save_local():
+    return {
+        btn_save_local: gr.Button(visible=True),
+        csv_file: gr.File(visible=True),
+        json_file: gr.File(visible=True)
+    }
 
 
 ######################
@@ -674,7 +725,14 @@ with gr.Blocks() as app:
                     interactive=True,
                     scale=1,
                 )
-                btn_push_to_hub = gr.Button("Push to Hub", variant="primary", scale=2)
+                btn_push_to_hub = gr.Button(
+                    "Push to Hub", variant="primary", scale=2
+                )
+                btn_save_local = gr.Button(
+                    "Save locally", variant="primary", scale=2, visible=False
+                )
+                csv_file = gr.File(label="CSV", elem_classes="datasets", visible=False)
+                json_file = gr.File(label="JSON", elem_classes="datasets", visible=False)
             with gr.Column(scale=3):
                 success_message = gr.Markdown(
                     visible=True,
@@ -822,6 +880,23 @@ with gr.Blocks() as app:
         outputs=[pipeline_code_ui],
     )
 
+    btn_save_local.click(
+        save_local,
+        inputs=[
+            search_in,
+            file_in,
+            input_type,
+            system_prompt,
+            document_column,
+            retrieval_reranking,
+            num_rows,
+            temperature,
+            repo_name,
+            temperature_completion,
+        ],
+        outputs=[csv_file, json_file]
+    )
+
     clear_dataset_btn_part.click(fn=lambda: "", inputs=[], outputs=[search_in])
     clear_file_btn_part.click(fn=lambda: None, inputs=[], outputs=[file_in])
     clear_prompt_btn_part.click(fn=lambda: "", inputs=[], outputs=[dataset_description])
@@ -835,3 +910,5 @@ with gr.Blocks() as app:
     app.load(fn=get_org_dropdown, outputs=[org_name])
     app.load(fn=get_random_repo_name, outputs=[repo_name])
     app.load(fn=show_temperature_completion, outputs=[temperature_completion])
+    if SAVE_LOCAL_DIR is not None:
+        app.load(fn=show_save_local, outputs=[btn_save_local, csv_file, json_file])
